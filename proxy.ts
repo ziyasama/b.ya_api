@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { panelCookieName, verifyPanelSession } from "@/lib/auth/session";
+import { requestOrigin } from "@/lib/request-origin";
 
 export async function proxy(request: NextRequest) {
   const password = process.env.PANEL_PASSWORD ?? "";
@@ -11,7 +12,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const login = new URL("/login", request.url);
+  const login = new URL("/login", requestOrigin(request));
   login.searchParams.set("next", request.nextUrl.pathname);
   return NextResponse.redirect(login);
 }
