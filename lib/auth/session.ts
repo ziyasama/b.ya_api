@@ -23,6 +23,11 @@ export function panelCookieName(): string {
   return COOKIE_NAME;
 }
 
+/** Trim whitespace — Railway/env paste often adds trailing newlines. */
+export function panelPassword(): string {
+  return (process.env.PANEL_PASSWORD ?? "").trim();
+}
+
 export async function signPanelSession(password: string): Promise<string> {
   return hmac(password, "bosphorus-panel-ok");
 }

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { panelCookieName, verifyPanelSession } from "@/lib/auth/session";
+import { panelCookieName, panelPassword, verifyPanelSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/request-origin";
 
 export async function proxy(request: NextRequest) {
-  const password = process.env.PANEL_PASSWORD ?? "";
+  const password = panelPassword();
   const token = request.cookies.get(panelCookieName())?.value;
   const ok = await verifyPanelSession(token, password);
 

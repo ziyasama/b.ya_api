@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { panelCookieName, signPanelSession } from "@/lib/auth/session";
+import { panelCookieName, panelPassword, signPanelSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: Request) {
-  const password = process.env.PANEL_PASSWORD ?? "";
+  const password = panelPassword();
   const form = await request.formData();
   const submitted = String(form.get("password") ?? "");
   const nextPath = String(form.get("next") ?? "/dashboard");
