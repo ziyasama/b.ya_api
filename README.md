@@ -8,14 +8,14 @@ The dashboard and database are plumbing. The product is the signal.
 
 ```bash
 cp .env.example .env.local
-# fill in Supabase keys and PANEL_PASSWORD
+# fill in Supabase keys
 npm install
 npm run dev
 ```
 
 Apply [`supabase/migrations/0001_bosphorus_state_logs.sql`](supabase/migrations/0001_bosphorus_state_logs.sql) in the Supabase SQL editor after review.
 
-Password-protected routes (`PANEL_PASSWORD`, gated by `proxy.ts`):
+Public routes:
 
 - `/dashboard` — live wind/wave/current/vessel state. Tap the source-status pills (top right) to swap the live grids for the scan area map in place.
 - `/map` — same map full-page: the two AISStream bounding boxes and the Open-Meteo/CMEMS sample point, with a legend and a leftover-work status panel. Geometry comes from `lib/env.ts` / `.env.example`, the same source `lib/fetchers/aisstream.ts` subscribes with.

@@ -67,14 +67,6 @@ export function DashboardLive({
             {live ? " · realtime" : " · connecting"}
           </p>
         </div>
-        <form action="/api/auth/logout" method="post">
-          <button
-            type="submit"
-            className="rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
-          >
-            Sign out
-          </button>
-        </form>
       </header>
 
       <SourceStatusPills
