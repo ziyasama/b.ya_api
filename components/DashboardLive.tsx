@@ -28,7 +28,13 @@ export function DashboardLive({
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createBrowserSupabase();
+    let supabase: ReturnType<typeof createBrowserSupabase> | null = null;
+    try {
+      supabase = createBrowserSupabase();
+    } catch {
+      return;
+    }
+
     const channel = supabase
       .channel("bosphorus_state_logs")
       .on(

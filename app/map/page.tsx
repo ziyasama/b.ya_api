@@ -37,7 +37,7 @@ export default async function MapPage() {
           </p>
         </div>
         <Link
-          href="/dashboard"
+          href="/"
           className="rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
         >
           ← Dashboard

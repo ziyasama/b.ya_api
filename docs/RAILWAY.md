@@ -31,4 +31,4 @@ Run `npm run broadcast` on the **installation machine**, not in Railway. Virtual
 - [ ] `npm start` serves the app with `PORT`
 - [ ] Env vars match `.env.example`
 - [ ] Worker service is running and inserting into `bosphorus_state_logs`
-- [ ] `/dashboard` loads and updates without refresh
+- [ ] `/` loads and updates without refresh
