@@ -1,19 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BosphorusScanMap } from "@/components/map/BosphorusScanMap";
 import { Gauge } from "@/components/Gauge";
 import { MetricCard } from "@/components/MetricCard";
 import { SourceStatusPills } from "@/components/SourceStatusPills";
 import { VesselList } from "@/components/VesselList";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
+import type { BosphorusGeo } from "@/lib/map/geo";
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
 import { rowToState } from "@/lib/standardize/row";
 import type { BosphorusState } from "@/lib/standardize/types";
 
-export function DashboardLive({ initial }: { initial: BosphorusState | null }) {
+export function DashboardLive({
+  initial,
+  geo,
+  cartoApiKey,
+}: {
+  initial: BosphorusState | null;
+  geo: BosphorusGeo;
+  cartoApiKey?: string;
+}) {
   const [current, setCurrent] = useState<BosphorusState | null>(initial);
   const [previous, setPrevious] = useState<BosphorusState | null>(null);
   const [live, setLive] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,71 +77,86 @@ export function DashboardLive({ initial }: { initial: BosphorusState | null }) {
         </form>
       </header>
 
-      <SourceStatusPills status={current?.sourceStatus ?? null} />
+      <SourceStatusPills
+        status={current?.sourceStatus ?? null}
+        showingMap={showMap}
+        onToggle={() => setShowMap((v) => !v)}
+      />
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Gauge
-          label="Wind"
-          value={current?.windSpeed ?? null}
-          unit="m/s"
-          normalized={current?.normalized.windSpeed ?? 0}
+      {showMap ? (
+        <BosphorusScanMap
+          geo={geo}
+          vessels={current?.vesselData ?? []}
+          cartoApiKey={cartoApiKey}
+          compact
         />
-        <Gauge
-          label="Wave"
-          value={current?.waveHeight ?? null}
-          unit="m"
-          normalized={current?.normalized.waveHeight ?? 0}
-        />
-        <Gauge
-          label="Current"
-          value={
-            current
-              ? Math.hypot(current.currentU ?? 0, current.currentV ?? 0)
-              : null
-          }
-          unit="m/s"
-          normalized={current?.normalized.currentSpeed ?? 0}
-        />
-      </section>
+      ) : (
+        <>
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Gauge
+              label="Wind"
+              value={current?.windSpeed ?? null}
+              unit="m/s"
+              normalized={current?.normalized.windSpeed ?? 0}
+            />
+            <Gauge
+              label="Wave"
+              value={current?.waveHeight ?? null}
+              unit="m"
+              normalized={current?.normalized.waveHeight ?? 0}
+            />
+            <Gauge
+              label="Current"
+              value={
+                current
+                  ? Math.hypot(current.currentU ?? 0, current.currentV ?? 0)
+                  : null
+              }
+              unit="m/s"
+              normalized={current?.normalized.currentSpeed ?? 0}
+            />
+          </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <MetricCard
-          label="SST"
-          value={current?.seaSurfaceTemp ?? null}
-          previous={previous?.seaSurfaceTemp ?? null}
-          unit="°C"
-        />
-        <MetricCard
-          label="Salinity"
-          value={current?.salinity ?? null}
-          previous={previous?.salinity ?? null}
-          unit="PSU"
-        />
-        <MetricCard
-          label="Density"
-          value={current?.waterDensity ?? null}
-          previous={previous?.waterDensity ?? null}
-          unit="kg/m³"
-        />
-        <MetricCard
-          label="Current dir"
-          value={current?.currentDirection ?? null}
-          previous={previous?.currentDirection ?? null}
-          unit="°"
-        />
-        <MetricCard
-          label="U / V"
-          value={current?.currentU ?? null}
-          previous={previous?.currentU ?? null}
-          unit="m/s"
-        />
-        <MetricCard
-          label="Vessels"
-          value={current?.vesselCount ?? null}
-          previous={previous?.vesselCount ?? null}
-          unit=""
-        />
-      </section>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <MetricCard
+              label="SST"
+              value={current?.seaSurfaceTemp ?? null}
+              previous={previous?.seaSurfaceTemp ?? null}
+              unit="°C"
+            />
+            <MetricCard
+              label="Salinity"
+              value={current?.salinity ?? null}
+              previous={previous?.salinity ?? null}
+              unit="PSU"
+            />
+            <MetricCard
+              label="Density"
+              value={current?.waterDensity ?? null}
+              previous={previous?.waterDensity ?? null}
+              unit="kg/m³"
+            />
+            <MetricCard
+              label="Current dir"
+              value={current?.currentDirection ?? null}
+              previous={previous?.currentDirection ?? null}
+              unit="°"
+            />
+            <MetricCard
+              label="U / V"
+              value={current?.currentU ?? null}
+              previous={previous?.currentU ?? null}
+              unit="m/s"
+            />
+            <MetricCard
+              label="Vessels"
+              value={current?.vesselCount ?? null}
+              previous={previous?.vesselCount ?? null}
+              unit=""
+            />
+          </section>
+        </>
+      )}
 
       <section>
         <h2 className="mb-3 text-xs uppercase tracking-widest text-muted">

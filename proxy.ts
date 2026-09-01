@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { panelCookieName, verifyPanelSession } from "@/lib/auth/session";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const password = process.env.PANEL_PASSWORD ?? "";
   const token = request.cookies.get(panelCookieName())?.value;
   const ok = await verifyPanelSession(token, password);
@@ -17,5 +17,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/map/:path*"],
 };

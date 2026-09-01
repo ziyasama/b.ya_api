@@ -1,4 +1,6 @@
 import { DashboardLive } from "@/components/DashboardLive";
+import { cartoApiKey } from "@/lib/env";
+import { getBosphorusGeo } from "@/lib/map/geo";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { rowToState } from "@/lib/standardize/row";
 
@@ -19,5 +21,11 @@ export default async function DashboardPage() {
     initial = null;
   }
 
-  return <DashboardLive initial={initial} />;
+  return (
+    <DashboardLive
+      initial={initial}
+      geo={getBosphorusGeo()}
+      cartoApiKey={cartoApiKey()}
+    />
+  );
 }
