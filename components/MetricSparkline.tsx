@@ -3,9 +3,9 @@ import type { HistoryPoint } from "@/lib/history/metrics";
 const VIEW_W = 100;
 const VIEW_H = 44;
 const PAD_LEFT = 0;
-const PAD_RIGHT = 0;
-const PAD_TOP = 3;
-const PAD_BOTTOM = 3;
+const PAD_RIGHT = 2;
+const PAD_TOP = 1;
+const PAD_BOTTOM = 1;
 
 function formatAxisValue(value: number, unit: string): string {
   if (unit === "") return String(Math.round(value));
@@ -20,7 +20,7 @@ function formatAxisTime(iso: string): string {
 
 function yScale(min: number, max: number): { yMin: number; yMax: number; ticks: number[] } {
   const span = max - min;
-  const pad = span === 0 ? Math.max(Math.abs(min) * 0.1, 0.5) : span * 0.08;
+  const pad = span === 0 ? Math.max(Math.abs(min) * 0.1, 0.5) : span * 0.04;
   const yMin = min - pad;
   const yMax = max + pad;
 
@@ -100,64 +100,99 @@ export function MetricSparkline({
   const paths = linePaths(scaled);
   if (!paths.length) return null;
 
+  const lastPoint = scaled[x1];
+
+  const tickLabels = ticks.map((tick) => formatAxisValue(tick, unit));
+  const widestLabel = tickLabels.reduce((widest, label) =>
+    label.length > widest.length ? label : widest,
+  );
+
   return (
     <div className={className}>
-      <div className="rounded-lg border border-border bg-background px-2 pb-1.5 pt-2">
-        <div className="flex items-stretch gap-1.5">
-          <div className="relative w-10 shrink-0" style={{ height: "2.5rem" }}>
-            {ticks.map((tick) => {
-              const top = (1 - (tick - yMin) / yRange) * 100;
+      <div className="rounded-lg border border-border bg-background px-1.5 py-1">
+        <div className="flex items-stretch gap-1">
+          <div className="relative h-10 shrink-0">
+            <span
+              aria-hidden
+              className="invisible block font-mono text-[9px] leading-none tabular-nums"
+            >
+              {widestLabel}
+            </span>
+            {ticks.map((tick, index) => {
+              const top = (toY(tick) / VIEW_H) * 100;
+              const isFirst = index === 0;
+              const isLast = index === ticks.length - 1;
               return (
                 <span
                   key={tick}
-                  className="absolute right-0 translate-y-[-50%] font-mono text-[9px] leading-none text-muted"
-                  style={{ top: `${top}%` }}
+                  className="absolute right-0 font-mono text-[9px] leading-none tabular-nums text-muted"
+                  style={{
+                    top: `${top}%`,
+                    transform: isFirst ? "translateY(0)" : isLast ? "translateY(-100%)" : "translateY(-50%)",
+                  }}
                 >
-                  {formatAxisValue(tick, unit)}
+                  {tickLabels[index]}
                 </span>
               );
             })}
           </div>
 
           <div className="min-w-0 flex-1">
-            <svg
-              viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-              preserveAspectRatio="none"
-              className="block h-10 w-full"
-              role="img"
-              aria-label={`Past hour from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
-            >
-              <g className="text-border">
-                {ticks.map((tick) => {
-                  const y = toY(tick);
-                  return (
-                    <line
-                      key={tick}
-                      x1={axisX}
-                      y1={y}
-                      x2={VIEW_W - PAD_RIGHT}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeWidth="0.35"
-                      opacity="0.35"
-                    />
-                  );
-                })}
-              </g>
+            <div className="relative">
+              <svg
+                viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+                preserveAspectRatio="none"
+                className="block h-10 w-full overflow-visible"
+                role="img"
+                aria-label={`Past hour from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
+              >
+                <g className="text-border">
+                  {ticks.map((tick) => {
+                    const y = toY(tick);
+                    return (
+                      <line
+                        key={tick}
+                        x1={axisX}
+                        y1={y}
+                        x2={VIEW_W - PAD_RIGHT}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeWidth="0.35"
+                        opacity="0.35"
+                      />
+                    );
+                  })}
+                </g>
 
-              {paths.map((d) => (
-                <path
-                  key={d}
-                  d={d}
-                  fill="none"
-                  className="text-cyan"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-            </svg>
-            <div className="mt-1 flex justify-between font-mono text-[9px] text-muted">
+                {paths.map((d) => (
+                  <path
+                    key={d}
+                    d={d}
+                    fill="none"
+                    className="text-cyan"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </svg>
+              {lastPoint ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute"
+                  style={{
+                    left: `${(lastPoint.x / VIEW_W) * 100}%`,
+                    top: `${(lastPoint.y / VIEW_H) * 100}%`,
+                  }}
+                >
+                  <span className="absolute -translate-x-1/2 -translate-y-1/2">
+                    <span className="block size-1.5 animate-spark-live rounded-full bg-cyan/55" />
+                  </span>
+                  <span className="absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan shadow-[0_0_6px_var(--color-cyan)]" />
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-0.5 flex justify-between font-mono text-[9px] leading-none text-muted">
               <span>{formatAxisTime(plotted[0].t)}</span>
               <span>{formatAxisTime(plotted[plotted.length - 1].t)}</span>
             </div>
