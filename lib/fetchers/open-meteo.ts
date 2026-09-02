@@ -6,10 +6,16 @@ import type { FetcherResult, OpenMeteoRaw } from "@/lib/fetchers/types";
 const STORE_KEY = "open-meteo";
 
 type OpenMeteoCurrentResponse = {
+  /** The grid cell actually used, which is not necessarily the one requested. */
+  latitude?: number;
+  longitude?: number;
   current?: {
     wind_speed_10m?: number;
     wind_direction_10m?: number;
     wave_height?: number;
+    wave_period?: number;
+    wave_direction?: number;
+    swell_wave_height?: number;
     sea_surface_temperature?: number;
   };
 };
@@ -23,12 +29,17 @@ async function getJson(url: string): Promise<OpenMeteoCurrentResponse> {
 }
 
 /**
- * Raw Open-Meteo weather + marine current conditions for the Bosphorus point.
- * Never throws.
+ * Modelled wind at the strait plus waves and SST from open water at the
+ * northern mouth. The wave model has no cell inside the strait, so requesting
+ * one there snaps the sample ~9 km south into the Marmara and returns an
+ * inshore near-zero; see BOSPHORUS.waveLat in lib/env.ts. Wind stays as a
+ * fallback behind measured METAR. Never throws.
  */
 export async function fetchOpenMeteo(): Promise<FetcherResult<OpenMeteoRaw>> {
   const lat = BOSPHORUS.lat();
   const lon = BOSPHORUS.lon();
+  const waveLat = BOSPHORUS.waveLat();
+  const waveLon = BOSPHORUS.waveLon();
   const forecastUrl = env(
     "OPEN_METEO_FORECAST_URL",
     "https://api.open-meteo.com/v1/forecast",
@@ -39,7 +50,7 @@ export async function fetchOpenMeteo(): Promise<FetcherResult<OpenMeteoRaw>> {
   );
 
   const weatherEndpoint = `${forecastUrl}?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms`;
-  const marineEndpoint = `${marineUrl}?latitude=${lat}&longitude=${lon}&current=wave_height,sea_surface_temperature`;
+  const marineEndpoint = `${marineUrl}?latitude=${waveLat}&longitude=${waveLon}&current=wave_height,wave_period,wave_direction,swell_wave_height,sea_surface_temperature`;
 
   try {
     const [weather, marine] = await Promise.all([
@@ -51,7 +62,12 @@ export async function fetchOpenMeteo(): Promise<FetcherResult<OpenMeteoRaw>> {
       windSpeed: weather.current?.wind_speed_10m ?? null,
       windDirection: weather.current?.wind_direction_10m ?? null,
       waveHeight: marine.current?.wave_height ?? null,
+      wavePeriod: marine.current?.wave_period ?? null,
+      waveDirection: marine.current?.wave_direction ?? null,
+      swellHeight: marine.current?.swell_wave_height ?? null,
       seaSurfaceTemp: marine.current?.sea_surface_temperature ?? null,
+      sampleLat: marine.latitude ?? null,
+      sampleLon: marine.longitude ?? null,
     };
 
     remember(STORE_KEY, data);

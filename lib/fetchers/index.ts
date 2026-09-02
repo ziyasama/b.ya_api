@@ -1,10 +1,13 @@
 export { fetchOpenMeteo, openMeteoPollMs } from "@/lib/fetchers/open-meteo";
+export { fetchMetar, metarPollMs } from "@/lib/fetchers/metar";
+export { fetchSeaLevel, seaLevelPollMs } from "@/lib/fetchers/sea-level";
 export { AisStreamFetcher, aisSnapshotMs } from "@/lib/fetchers/aisstream";
-export { fetchCmems, cmemsPollMs, waterDensityKgM3 } from "@/lib/fetchers/cmems";
 export type {
   AisSnapshotRaw,
   AisVesselRaw,
-  CmemsRaw,
   FetcherResult,
+  MetarRaw,
   OpenMeteoRaw,
+  SeaLevelRaw,
+  SeaLevelStationRaw,
 } from "@/lib/fetchers/types";

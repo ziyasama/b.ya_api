@@ -54,6 +54,19 @@ function readNumber(...values: Array<number | undefined | null>): number | null 
 }
 
 /**
+ * AISStream sends Go's default time format, "2026-09-02 10:18:59.878860182
+ * +0000 UTC", which Postgres rejects outright. V8 parses it, so normalise to
+ * ISO here rather than letting it reach the roster upsert.
+ */
+function toIsoTime(raw: string | undefined): string {
+  if (raw) {
+    const parsed = Date.parse(raw);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  return new Date().toISOString();
+}
+
+/**
  * Persistent AISStream.io WebSocket. Call start() once from the worker.
  * snapshot() never throws; it returns last-known-good on failure.
  */
@@ -65,11 +78,28 @@ export class AisStreamFetcher {
   private shouldRun = false;
   private lastError: string | null = null;
   private confirmed = false;
+  private confirmedAt = 0;
   private frames = 0;
 
   start(): void {
     this.shouldRun = true;
     this.connect();
+  }
+
+  /**
+   * Seed the roster from the durable store on boot. Without this the strait
+   * reads as empty for the first minutes after every restart.
+   */
+  hydrate(vessels: AisVesselRaw[]): void {
+    for (const vessel of vessels) {
+      if (!this.vessels.has(vessel.mmsi)) this.vessels.set(vessel.mmsi, vessel);
+    }
+    if (vessels.length) log.info("ais.hydrated", { count: vessels.length });
+  }
+
+  /** Live vessels, for persisting back to the durable store. */
+  roster(): AisVesselRaw[] {
+    return snapshotFromMap(this.vessels).vessels;
   }
 
   stop(): void {
@@ -84,6 +114,21 @@ export class AisStreamFetcher {
   snapshot(): FetcherResult<AisSnapshotRaw> {
     const data = snapshotFromMap(this.vessels);
     if (this.confirmed && this.socket?.readyState === WebSocket.OPEN) {
+      // A confirmed subscription with an empty roster is not an empty strait,
+      // it is a feed that has not spoken yet: AISStream pushes only when a
+      // vessel transmits, and the roster takes minutes to fill. Report the gap
+      // rather than a zero the dashboard would render as "no traffic".
+      const warmupMs = envNumber("AIS_WARMUP_MS", 60_000);
+      if (data.vesselCount === 0 && Date.now() - this.confirmedAt < warmupMs) {
+        return {
+          ok: false,
+          health: "unavailable",
+          data: null,
+          fetchedAt: new Date().toISOString(),
+          error: "AIS warming up: subscription confirmed, no positions yet",
+        };
+      }
+
       remember(STORE_KEY, data);
       return {
         ok: true,
@@ -93,9 +138,9 @@ export class AisStreamFetcher {
       };
     }
 
-    const last = recall<AisSnapshotRaw>(STORE_KEY) ?? data;
+    const last = recall<AisSnapshotRaw>(STORE_KEY);
     const error = this.lastError ?? "AIS WebSocket not connected";
-    if (last.vesselCount > 0 || last.vessels.length > 0) {
+    if (last && (last.vesselCount > 0 || last.vessels.length > 0)) {
       return {
         ok: false,
         health: "fallback",
@@ -104,10 +149,13 @@ export class AisStreamFetcher {
         error,
       };
     }
+    // Explicitly null rather than an empty snapshot. Returning
+    // { vesselCount: 0 } here would publish a disconnected socket as a count
+    // of zero vessels, which is the false-zero this pipeline exists to avoid.
     return {
       ok: false,
       health: "unavailable",
-      data: last,
+      data: null,
       fetchedAt: new Date().toISOString(),
       error,
     };
@@ -207,6 +255,7 @@ export class AisStreamFetcher {
 
     if (message.MessageType === "SubscriptionConfirmation") {
       this.confirmed = true;
+      this.confirmedAt = Date.now();
       this.reconnectAttempt = 0;
       this.lastError = null;
       log.info("ais.subscribed", {
@@ -250,7 +299,7 @@ export class AisStreamFetcher {
       size: length,
       shipName: meta?.ShipName?.trim() || existing?.shipName || null,
       shipType: staticData?.Type ?? existing?.shipType ?? null,
-      lastSeen: meta?.time_utc ?? meta?.timeUtc ?? new Date().toISOString(),
+      lastSeen: toIsoTime(meta?.time_utc ?? meta?.timeUtc),
     };
     this.vessels.set(mmsi, vessel);
     remember(STORE_KEY, snapshotFromMap(this.vessels));

@@ -5,9 +5,52 @@ Use a **new agent chat per remaining checkpoint**. Read this file plus `PLAN.md`
 ## Defaults (locked)
 
 - npm, Next.js App Router, TypeScript, Tailwind, no `src/`
-- Panel: Middleware + `PANEL_PASSWORD` cookie
+- Panel: **public, no auth.** The password gate was removed in `061375d`
 - Workers: one Node process (`npm run worker`)
 - OSC/MIDI: local `npm run broadcast`
+- Signal set: **wind, wave, current, water temperature, vessels.** Salinity and
+  the ocean column were dropped in Sep 2026
+
+---
+
+## Step 11 — Source audit and rebuild — DONE, 2 Sep 2026
+
+The dashboard was publishing numbers that were not true. Testing each source
+against reality found:
+
+- **Waves came from the wrong sea.** The marine wave model has no grid cell
+  inside the Bosphorus, so the strait request snapped ~9 km south into the Sea
+  of Marmara and returned 0.04 m at a 2-second period. Now sampled at the
+  nearest real cell (41.375, 29.125) in open Black Sea water off the northern
+  mouth, which reads 0.4 m at 4.25 s. `sample_lat`/`sample_lon` record the cell
+  the API actually used so this cannot recur silently.
+- **Model wind read about half the observed speed.** 2.97 m/s modelled against
+  5.1–6.2 m/s at three Istanbul anemometers. Wind now prefers measured METAR
+  (free, keyless) and falls back to the model, with `wind_source` naming which.
+- **Current never had a source.** `current_u`/`current_v` were null in every
+  row ever written, and `normalize()` maps null to 0, so a dead-calm strait was
+  shown as fact. Replaced by measured sea level from IOC tide gauges at Şile
+  (Black Sea) and Yalova (Marmara); the Black Sea minus Marmara head is what
+  physically drives the surface flow. Gauges sit on differing local datums, so
+  each is compared to its own 24 h mean and only anomalies are subtracted.
+- **AIS worked but was forgetful.** The roster lived only in memory, so every
+  restart reset the strait to empty while the worker persisted anyway. Now
+  persisted to `vessel_positions` and rehydrated on boot; round-trip verified.
+
+Migration `0002_measured_sources.sql` is **applied**. Verified end to end:
+`persist.ok vesselCount:5 windSpeed:6.17 windSource:metar seaLevelHead:-0.019`.
+
+Run `npm run check:sources` to see what every keyless source currently returns,
+including how far the model snapped from the cell requested.
+
+Honesty layer: `available` flags travel beside the values, `provenance` records
+measured vs modelled and observation age per signal, and the broadcaster emits
+`/bosphorus/available/*` as 0.0 or 1.0 so a patch can drop a voice rather than
+read a normalized 0 as calm.
+
+Retired: `lib/fetchers/cmems.ts`, `CmemsRaw`, and the Copernicus credentials in
+`.env.local`. `cmems_mod_blk_phy-cur_anfc_mrm-500m_PT1H-i` is the validated
+route back to a true in-strait velocity in m/s, at the cost of a Python sidecar.
 
 ---
 
@@ -15,17 +58,17 @@ Use a **new agent chat per remaining checkpoint**. Read this file plus `PLAN.md`
 
 Next.js 16 App Router + Tailwind at repo root. Folders: `app/`, `components/`, `lib/`, `workers/`, `lib/standardize/`, `lib/osc-midi/`. `.env.example` and `.gitignore` (`.env.local` excluded). `npm run build` / `npm start` present.
 
-## Step 2 — Supabase + panel gate — DONE (SQL not applied remotely)
+## Step 2 — Supabase + panel gate — DONE (migrations 0001 and 0002 applied)
 
-DDL: `supabase/migrations/0001_bosphorus_state_logs.sql`. Review before applying in the SQL editor. Middleware gates `/dashboard`. Login at `/login`. Admin client: `lib/supabase/admin.ts` (never from `"use client"`).
+DDL: `supabase/migrations/`. Admin client: `lib/supabase/admin.ts` (never from
+`"use client"`). The password gate and `/login` were removed in `061375d`, so
+the dashboard is public. Reads are public too: the RLS policy is `using (true)`.
 
-**You still need:** live Supabase URL + keys.
+## Step 3 — Fetchers — DONE, rebuilt in Step 11
 
-## Step 3 — Fetchers — DONE (raw types)
-
-Contracts in `lib/fetchers/types.ts` and `lib/fetchers/README.md`. Open-Meteo REST, AISStream WebSocket + backoff, CMEMS stub/ERDDAP. No Supabase writes.
-
-**You still need:** `AISSTREAM_API_KEY` + confirm bbox; `CMEMS_ERDDAP_URL` or toolbox JSON.
+Contracts in `lib/fetchers/types.ts` and `lib/fetchers/README.md`, which
+documents each source grouped by measured versus modelled. METAR and IOC sea
+level need no keys; only AISStream does, and it works.
 
 ## Step 4 — Standardizer — DONE
 

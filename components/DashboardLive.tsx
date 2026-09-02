@@ -93,62 +93,72 @@ export function DashboardLive({
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Gauge
               label="Wind"
-              value={current?.windSpeed ?? null}
+              value={current?.available.wind ? current.windSpeed : null}
               unit="m/s"
-              normalized={current?.normalized.windSpeed ?? 0}
+              normalized={current?.available.wind ? current.normalized.windSpeed : 0}
             />
             <Gauge
               label="Wave"
-              value={current?.waveHeight ?? null}
+              value={current?.available.wave ? current.waveHeight : null}
               unit="m"
-              normalized={current?.normalized.waveHeight ?? 0}
+              normalized={current?.available.wave ? current.normalized.waveHeight : 0}
             />
             <Gauge
-              label="Current"
-              value={
-                current
-                  ? Math.hypot(current.currentU ?? 0, current.currentV ?? 0)
-                  : null
-              }
-              unit="m/s"
-              normalized={current?.normalized.currentSpeed ?? 0}
+              label="Sea level head"
+              value={current?.available.seaLevel ? current.seaLevelHead : null}
+              unit="m"
+              normalized={current?.available.seaLevel ? current.normalized.seaLevelHead : 0}
             />
           </section>
 
+          <p className="-mt-2 font-mono text-[10px] leading-relaxed text-muted">
+            {current?.windSource === "metar"
+              ? "Wind measured at Istanbul airport anemometers."
+              : current?.windSource === "model"
+                ? "Wind from forecast model — METAR unavailable, expect an underread."
+                : "Wind unavailable."}{" "}
+            Waves modelled at the northern mouth
+            {current?.sampleLat != null
+              ? ` (cell ${current.sampleLat.toFixed(2)}, ${current.sampleLon?.toFixed(2)})`
+              : ""}
+            . Head is Black Sea minus Marmara, measured by tide gauges; positive
+            drives water south.
+          </p>
+
           <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <MetricCard
-              label="SST"
-              value={current?.seaSurfaceTemp ?? null}
+              label="Water temp"
+              value={current?.available.seaSurfaceTemp ? current.seaSurfaceTemp : null}
               previous={previous?.seaSurfaceTemp ?? null}
               unit="°C"
             />
             <MetricCard
-              label="Salinity"
-              value={current?.salinity ?? null}
-              previous={previous?.salinity ?? null}
-              unit="PSU"
+              label="Wave period"
+              value={current?.wavePeriod ?? null}
+              previous={previous?.wavePeriod ?? null}
+              unit="s"
             />
             <MetricCard
-              label="Density"
-              value={current?.waterDensity ?? null}
-              previous={previous?.waterDensity ?? null}
-              unit="kg/m³"
+              label="Swell"
+              value={current?.swellHeight ?? null}
+              previous={previous?.swellHeight ?? null}
+              unit="m"
             />
             <MetricCard
-              label="Current dir"
-              value={current?.currentDirection ?? null}
-              previous={previous?.currentDirection ?? null}
+              label="Wind dir"
+              value={current?.windDirection ?? null}
+              previous={previous?.windDirection ?? null}
               unit="°"
             />
             <MetricCard
-              label="U / V"
-              value={current?.currentU ?? null}
-              previous={previous?.currentU ?? null}
-              unit="m/s"
+              label="Black Sea"
+              value={current?.seaLevelBlackSea ?? null}
+              previous={previous?.seaLevelBlackSea ?? null}
+              unit="m"
             />
             <MetricCard
               label="Vessels"
-              value={current?.vesselCount ?? null}
+              value={current?.available.vessels ? current.vesselCount : null}
               previous={previous?.vesselCount ?? null}
               unit=""
             />

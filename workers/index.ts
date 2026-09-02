@@ -2,97 +2,134 @@ import { config } from "dotenv";
 import { envNumber } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { AisStreamFetcher, aisSnapshotMs } from "@/lib/fetchers/aisstream";
-import { fetchCmems, cmemsPollMs } from "@/lib/fetchers/cmems";
+import { fetchMetar, metarPollMs } from "@/lib/fetchers/metar";
 import { fetchOpenMeteo, openMeteoPollMs } from "@/lib/fetchers/open-meteo";
-import type { FetcherResult, OpenMeteoRaw, CmemsRaw } from "@/lib/fetchers/types";
+import { fetchSeaLevel, seaLevelPollMs } from "@/lib/fetchers/sea-level";
+import type {
+  FetcherResult,
+  MetarRaw,
+  OpenMeteoRaw,
+  SeaLevelRaw,
+} from "@/lib/fetchers/types";
 import { toBosphorusState } from "@/lib/standardize";
 import { persistState } from "@/lib/standardize/persist";
+import { loadRoster, saveRoster } from "@/lib/vessels/store";
 
 config({ path: ".env.local" });
 config();
 
 const ais = new AisStreamFetcher();
 
-let latestWeather: FetcherResult<OpenMeteoRaw> = {
-  ok: false,
-  health: "unavailable",
-  data: null,
-  fetchedAt: new Date().toISOString(),
-  error: "not fetched yet",
-};
-
-let latestCmems: FetcherResult<CmemsRaw> = {
-  ok: false,
-  health: "unavailable",
-  data: null,
-  fetchedAt: new Date().toISOString(),
-  error: "not fetched yet",
-};
-
-let weatherTimer: NodeJS.Timeout | null = null;
-let cmemsTimer: NodeJS.Timeout | null = null;
-let persistTimer: NodeJS.Timeout | null = null;
-let shuttingDown = false;
-
-async function safeWeather(): Promise<void> {
-  try {
-    latestWeather = await fetchOpenMeteo();
-  } catch (error) {
-    log.error("worker.weather.uncaught", {
-      error: error instanceof Error ? error.message : "unknown",
-    });
-  }
+function pending<T>(what: string): FetcherResult<T> {
+  return {
+    ok: false,
+    health: "unavailable",
+    data: null,
+    fetchedAt: new Date().toISOString(),
+    error: `${what} not fetched yet`,
+  };
 }
 
-async function safeCmems(): Promise<void> {
+let latestWeather = pending<OpenMeteoRaw>("open-meteo");
+let latestMetar = pending<MetarRaw>("metar");
+let latestSeaLevel = pending<SeaLevelRaw>("sea level");
+
+const timers: NodeJS.Timeout[] = [];
+let shuttingDown = false;
+
+/** Supabase rejects with plain objects rather than Error, so instanceof is not enough. */
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return typeof error === "string" ? error : JSON.stringify(error);
+}
+
+/** Each source polls on its own clock: sea level moves every few seconds, METAR every half hour. */
+async function guarded(name: string, fn: () => Promise<void>): Promise<void> {
   try {
-    latestCmems = await fetchCmems();
+    await fn();
   } catch (error) {
-    log.error("worker.cmems.uncaught", {
-      error: error instanceof Error ? error.message : "unknown",
-    });
+    log.error(`worker.${name}.uncaught`, { error: messageOf(error) });
   }
 }
 
 async function persistCycle(): Promise<void> {
   if (shuttingDown) return;
-  try {
+  await guarded("persist", async () => {
     const state = toBosphorusState({
       openMeteo: latestWeather,
       ais: ais.snapshot(),
-      cmems: latestCmems,
+      metar: latestMetar,
+      seaLevel: latestSeaLevel,
     });
     await persistState(state);
-  } catch (error) {
-    log.error("worker.persist.uncaught", {
-      error: error instanceof Error ? error.message : "unknown",
-    });
-  }
+  });
 }
 
-function interval(fn: () => void, ms: number): NodeJS.Timeout {
-  fn();
-  return setInterval(fn, ms);
+async function rosterCycle(): Promise<void> {
+  if (shuttingDown) return;
+  await guarded("roster", async () => {
+    await saveRoster(ais.roster());
+  });
+}
+
+/**
+ * Fetchers run immediately so the first row has something in it. The persist
+ * and roster timers must not, because on boot they would fire before any
+ * fetcher had returned and write an all-null row on every restart.
+ */
+function interval(fn: () => void, ms: number, immediate = true): NodeJS.Timeout {
+  if (immediate) fn();
+  const timer = setInterval(fn, ms);
+  timers.push(timer);
+  return timer;
 }
 
 async function main(): Promise<void> {
+  const persistMs = envNumber("WORKER_PERSIST_MS", 120_000);
   log.info("worker.start", {
     weatherMs: openMeteoPollMs(),
-    cmemsMs: cmemsPollMs(),
-    persistMs: envNumber("WORKER_PERSIST_MS", 30_000),
+    metarMs: metarPollMs(),
+    seaLevelMs: seaLevelPollMs(),
+    persistMs,
     aisSnapshotMs: aisSnapshotMs(),
   });
 
+  // Seed the AIS roster before the first insert so a restart does not publish
+  // an empty strait.
+  await guarded("hydrate", async () => {
+    ais.hydrate(await loadRoster());
+  });
+
   ais.start();
-  weatherTimer = interval(() => {
-    void safeWeather();
+
+  interval(() => {
+    void guarded("weather", async () => {
+      latestWeather = await fetchOpenMeteo();
+    });
   }, openMeteoPollMs());
-  cmemsTimer = interval(() => {
-    void safeCmems();
-  }, cmemsPollMs());
-  persistTimer = interval(() => {
+
+  interval(() => {
+    void guarded("metar", async () => {
+      latestMetar = await fetchMetar();
+    });
+  }, metarPollMs());
+
+  interval(() => {
+    void guarded("sea-level", async () => {
+      latestSeaLevel = await fetchSeaLevel();
+    });
+  }, seaLevelPollMs());
+
+  interval(() => {
     void persistCycle();
-  }, envNumber("WORKER_PERSIST_MS", 30_000));
+  }, persistMs, false);
+
+  interval(() => {
+    void rosterCycle();
+  }, envNumber("VESSEL_ROSTER_SAVE_MS", 120_000), false);
 }
 
 function shutdown(signal: string): void {
@@ -100,9 +137,7 @@ function shutdown(signal: string): void {
   shuttingDown = true;
   log.info("worker.shutdown", { signal });
   ais.stop();
-  if (weatherTimer) clearInterval(weatherTimer);
-  if (cmemsTimer) clearInterval(cmemsTimer);
-  if (persistTimer) clearInterval(persistTimer);
+  for (const timer of timers) clearInterval(timer);
   process.exit(0);
 }
 
