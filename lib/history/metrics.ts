@@ -55,7 +55,19 @@ const METRIC_KEYS: MetricSeriesKey[] = [
 ];
 
 export function emptyHistory(): MetricHistory {
-  return Object.fromEntries(METRIC_KEYS.map((key) => [key, []])) as MetricHistory;
+  return {
+    windSpeed: [],
+    windDirection: [],
+    waveHeight: [],
+    wavePeriod: [],
+    swellHeight: [],
+    seaSurfaceTemp: [],
+    seaLevelHead: [],
+    seaLevelBlackSea: [],
+    vesselCount: [],
+    northboundCount: [],
+    southboundCount: [],
+  };
 }
 
 function valuesFromRow(row: HistoryRow): Record<MetricSeriesKey, number | null> {
