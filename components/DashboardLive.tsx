@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BosphorusScanMap } from "@/components/map/BosphorusScanMap";
+import { BosphorusStaticMap } from "@/components/map/BosphorusStaticMap";
 import { MetricCard } from "@/components/MetricCard";
 import { RadioListen } from "@/components/RadioListen";
-import { SourceStatusPills } from "@/components/SourceStatusPills";
+import {
+  SourceStatusPill,
+} from "@/components/SourceStatusPills";
+import type { SourceStatus, SourceStatusEntry } from "@/lib/supabase/database.types";
 import { VesselList } from "@/components/VesselList";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { BosphorusGeo } from "@/lib/map/geo";
@@ -25,15 +28,24 @@ import type { BosphorusState } from "@/lib/standardize/types";
 function MetricNote({
   source,
   children,
+  statusKey,
+  statusEntry,
 }: {
   source: string;
   children: string;
+  statusKey?: keyof SourceStatus;
+  statusEntry?: SourceStatusEntry;
 }) {
   return (
     <div className="px-1 sm:px-0">
-      <p className="font-mono text-xs uppercase tracking-wider text-cyan">
-        {source}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-xs uppercase tracking-wider text-cyan">
+          {source}
+        </p>
+        {statusKey ? (
+          <SourceStatusPill sourceKey={statusKey} entry={statusEntry} />
+        ) : null}
+      </div>
       <p className="mt-1.5 text-sm leading-relaxed text-muted">
         {children}
       </p>
@@ -51,10 +63,13 @@ function MetricGroup({
   note: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
-      <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
-        {title}
-      </h3>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-4">
+        <h3 className="shrink-0 font-mono text-xs uppercase tracking-[0.25em] text-foreground/80">
+          {title}
+        </h3>
+        <div className="h-px flex-1 bg-foreground/25" aria-hidden="true" />
+      </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:gap-3">
         {children}
       </div>
@@ -114,19 +129,16 @@ function trafficGroupNote(): string {
 export function DashboardLive({
   initial,
   geo,
-  cartoApiKey,
   radioUrl,
 }: {
   initial: BosphorusState | null;
   geo: BosphorusGeo;
-  cartoApiKey?: string;
   radioUrl: string;
 }) {
   const [current, setCurrent] = useState<BosphorusState | null>(initial);
   const [previous, setPrevious] = useState<BosphorusState | null>(null);
   const [history, setHistory] = useState<MetricHistory>(() => emptyHistory());
   const [live, setLive] = useState(false);
-  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,139 +206,142 @@ export function DashboardLive({
         <RadioListen url={radioUrl} />
       </header>
 
-      <SourceStatusPills
-        status={current?.sourceStatus ?? null}
-        showingMap={showMap}
-        onToggle={() => setShowMap((v) => !v)}
-      />
+      <section className="flex flex-col gap-8">
+        <BosphorusStaticMap geo={geo} />
 
-      {showMap ? (
-        <BosphorusScanMap
-          geo={geo}
-          vessels={current?.vesselData ?? []}
-          cartoApiKey={cartoApiKey}
-          compact
-        />
-      ) : (
-        <section className="flex flex-col gap-8">
-            <MetricGroup
-              title="Wind"
-              note={
-                <MetricNote source={windSourceLabel(current?.windSource)}>
-                  {windGroupNote(current?.windSource)}
-                </MetricNote>
-              }
+        <MetricGroup
+          title="Wind"
+          note={
+            <MetricNote
+              source={windSourceLabel(current?.windSource)}
+              statusKey="metar"
+              statusEntry={current?.sourceStatus?.metar}
             >
-              <MetricCard
-                label="Wind"
-                value={current?.available.wind ? current.windSpeed : null}
-                previous={previous?.windSpeed ?? null}
-                unit="m/s"
-                history={seriesPoints(history, "windSpeed")}
-              />
-              <MetricCard
-                label="Wind dir"
-                value={current?.windDirection ?? null}
-                previous={previous?.windDirection ?? null}
-                unit="°"
-                history={seriesPoints(history, "windDirection")}
-              />
-            </MetricGroup>
+              {windGroupNote(current?.windSource)}
+            </MetricNote>
+          }
+        >
+          <MetricCard
+            label="Wind"
+            value={current?.available.wind ? current.windSpeed : null}
+            previous={previous?.windSpeed ?? null}
+            unit="m/s"
+            history={seriesPoints(history, "windSpeed")}
+          />
+          <MetricCard
+            label="Wind dir"
+            value={current?.windDirection ?? null}
+            previous={previous?.windDirection ?? null}
+            unit="°"
+            history={seriesPoints(history, "windDirection")}
+          />
+        </MetricGroup>
 
-            <MetricGroup
-              title="Waves & surface"
-              note={
-                <MetricNote source="Open-Meteo marine · modelled">
-                  {marineGroupNote(current)}
-                </MetricNote>
-              }
+        <MetricGroup
+          title="Waves & surface"
+          note={
+            <MetricNote
+              source="Open-Meteo marine · modelled"
+              statusKey="openMeteo"
+              statusEntry={current?.sourceStatus?.openMeteo}
             >
-              <MetricCard
-                label="Wave"
-                value={current?.available.wave ? current.waveHeight : null}
-                previous={previous?.waveHeight ?? null}
-                unit="m"
-                history={seriesPoints(history, "waveHeight")}
-              />
-              <MetricCard
-                label="Wave period"
-                value={current?.wavePeriod ?? null}
-                previous={previous?.wavePeriod ?? null}
-                unit="s"
-                history={seriesPoints(history, "wavePeriod")}
-              />
-              <MetricCard
-                label="Swell"
-                value={current?.swellHeight ?? null}
-                previous={previous?.swellHeight ?? null}
-                unit="m"
-                history={seriesPoints(history, "swellHeight")}
-              />
-              <MetricCard
-                label="Water temp"
-                value={current?.available.seaSurfaceTemp ? current.seaSurfaceTemp : null}
-                previous={previous?.seaSurfaceTemp ?? null}
-                unit="°C"
-                history={seriesPoints(history, "seaSurfaceTemp")}
-              />
-            </MetricGroup>
+              {marineGroupNote(current)}
+            </MetricNote>
+          }
+        >
+          <MetricCard
+            label="Wave"
+            value={current?.available.wave ? current.waveHeight : null}
+            previous={previous?.waveHeight ?? null}
+            unit="m"
+            history={seriesPoints(history, "waveHeight")}
+          />
+          <MetricCard
+            label="Wave period"
+            value={current?.wavePeriod ?? null}
+            previous={previous?.wavePeriod ?? null}
+            unit="s"
+            history={seriesPoints(history, "wavePeriod")}
+          />
+          <MetricCard
+            label="Swell"
+            value={current?.swellHeight ?? null}
+            previous={previous?.swellHeight ?? null}
+            unit="m"
+            history={seriesPoints(history, "swellHeight")}
+          />
+          <MetricCard
+            label="Water temp"
+            value={current?.available.seaSurfaceTemp ? current.seaSurfaceTemp : null}
+            previous={previous?.seaSurfaceTemp ?? null}
+            unit="°C"
+            history={seriesPoints(history, "seaSurfaceTemp")}
+          />
+        </MetricGroup>
 
-            <MetricGroup
-              title="Sea level"
-              note={
-                <MetricNote source="IOC tide gauges · measured">
-                  {seaLevelGroupNote()}
-                </MetricNote>
-              }
+        <MetricGroup
+          title="Sea level"
+          note={
+            <MetricNote
+              source="IOC tide gauges · measured"
+              statusKey="seaLevel"
+              statusEntry={current?.sourceStatus?.seaLevel}
             >
-              <MetricCard
-                label="Sea level head"
-                value={current?.available.seaLevel ? current.seaLevelHead : null}
-                previous={previous?.seaLevelHead ?? null}
-                unit="m"
-                history={seriesPoints(history, "seaLevelHead")}
-              />
-              <MetricCard
-                label="Black Sea"
-                value={current?.seaLevelBlackSea ?? null}
-                previous={previous?.seaLevelBlackSea ?? null}
-                unit="m"
-                history={seriesPoints(history, "seaLevelBlackSea")}
-              />
-            </MetricGroup>
+              {seaLevelGroupNote()}
+            </MetricNote>
+          }
+        >
+          <MetricCard
+            label="Sea level head"
+            value={current?.available.seaLevel ? current.seaLevelHead : null}
+            previous={previous?.seaLevelHead ?? null}
+            unit="m"
+            history={seriesPoints(history, "seaLevelHead")}
+          />
+          <MetricCard
+            label="Black Sea"
+            value={current?.seaLevelBlackSea ?? null}
+            previous={previous?.seaLevelBlackSea ?? null}
+            unit="m"
+            history={seriesPoints(history, "seaLevelBlackSea")}
+          />
+        </MetricGroup>
 
-            <MetricGroup
-              title="Traffic"
-              note={
-                <MetricNote source="AISStream · measured">
-                  {trafficGroupNote()}
-                </MetricNote>
-              }
+        <MetricGroup
+          title="Maritime traffic"
+          note={
+            <MetricNote
+              source="AISStream · measured"
+              statusKey="ais"
+              statusEntry={current?.sourceStatus?.ais}
             >
-              <MetricCard
-                label="Vessels"
-                value={current?.available.vessels ? current.vesselCount : null}
-                previous={previous?.vesselCount ?? null}
-                unit=""
-                history={seriesPoints(history, "vesselCount")}
-              />
-              <MetricCard
-                label="Northbound"
-                value={current?.available.vessels ? current.northboundCount : null}
-                previous={previous?.northboundCount ?? null}
-                unit=""
-                history={seriesPoints(history, "northboundCount")}
-              />
-              <MetricCard
-                label="Southbound"
-                value={current?.available.vessels ? current.southboundCount : null}
-                previous={previous?.southboundCount ?? null}
-                unit=""
-                history={seriesPoints(history, "southboundCount")}
-              />
-            </MetricGroup>
-        </section>
-      )}
+              {trafficGroupNote()}
+            </MetricNote>
+          }
+        >
+          <MetricCard
+            label="Vessels"
+            value={current?.available.vessels ? current.vesselCount : null}
+            previous={previous?.vesselCount ?? null}
+            unit=""
+            history={seriesPoints(history, "vesselCount")}
+          />
+          <MetricCard
+            label="Northbound"
+            value={current?.available.vessels ? current.northboundCount : null}
+            previous={previous?.northboundCount ?? null}
+            unit=""
+            history={seriesPoints(history, "northboundCount")}
+          />
+          <MetricCard
+            label="Southbound"
+            value={current?.available.vessels ? current.southboundCount : null}
+            previous={previous?.southboundCount ?? null}
+            unit=""
+            history={seriesPoints(history, "southboundCount")}
+          />
+        </MetricGroup>
+      </section>
 
       <section>
         <h2 className="mb-3 text-xs uppercase tracking-widest text-muted">

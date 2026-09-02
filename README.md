@@ -17,8 +17,8 @@ Apply [`supabase/migrations/0001_bosphorus_state_logs.sql`](supabase/migrations/
 
 Public routes:
 
-- `/` — live wind/wave/current/vessel state. Tap the source-status pills (top right) to swap the live grids for the scan area map in place.
-- `/map` — same map full-page: the two AISStream bounding boxes and the Open-Meteo/CMEMS sample point, with a legend and a leftover-work status panel. Geometry comes from `lib/env.ts` / `.env.example`, the same source `lib/fetchers/aisstream.ts` subscribes with.
+- `/` — live wind/wave/current/vessel state with a fixed reference map of where each source is sampled.
+- `/map` — full-page reference map with Natural Earth coastlines, data-source markers, legend, and sample-point coordinates. Regenerate cartography with `npm run map:build` if the scan bounds in `lib/env.ts` change.
 
 | Command | Purpose |
 | --- | --- |

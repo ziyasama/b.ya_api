@@ -1,5 +1,5 @@
 import { DashboardLive } from "@/components/DashboardLive";
-import { cartoApiKey, radioStreamUrl } from "@/lib/env";
+import { radioStreamUrl } from "@/lib/env";
 import { getBosphorusGeo } from "@/lib/map/geo";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { rowToState } from "@/lib/standardize/row";
@@ -25,7 +25,6 @@ export default async function HomePage() {
     <DashboardLive
       initial={initial}
       geo={getBosphorusGeo()}
-      cartoApiKey={cartoApiKey()}
       radioUrl={radioStreamUrl()}
     />
   );

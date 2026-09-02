@@ -3,7 +3,7 @@ import type { HistoryPoint } from "@/lib/history/metrics";
 const VIEW_W = 100;
 const VIEW_H = 44;
 const PAD_LEFT = 0;
-const PAD_RIGHT = 2;
+const PAD_RIGHT = 0;
 const PAD_TOP = 3;
 const PAD_BOTTOM = 3;
 
@@ -82,20 +82,19 @@ export function MetricSparkline({
   const { yMin, yMax, ticks } = yScale(min, max);
   const yRange = yMax - yMin || 1;
 
-  const t0 = Date.parse(plotted[0].t);
-  const t1 = Date.parse(plotted[plotted.length - 1].t);
-  const tRange = t1 - t0 || 1;
-
   const plotW = VIEW_W - PAD_LEFT - PAD_RIGHT;
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM;
+  const x0 = points.findIndex((point) => point.v != null);
+  const x1 = points.findLastIndex((point) => point.v != null);
+  const xSpan = Math.max(x1 - x0, 1);
 
-  const toX = (time: number) => PAD_LEFT + ((time - t0) / tRange) * plotW;
+  const toX = (index: number) => PAD_LEFT + ((index - x0) / xSpan) * plotW;
   const toY = (value: number) => PAD_TOP + (1 - (value - yMin) / yRange) * plotH;
   const axisX = PAD_LEFT;
 
-  const scaled = points.map((point) => {
+  const scaled = points.map((point, index) => {
     if (point.v == null) return null;
-    return { x: toX(Date.parse(point.t)), y: toY(point.v) };
+    return { x: toX(index), y: toY(point.v) };
   });
 
   const paths = linePaths(scaled);
@@ -103,52 +102,37 @@ export function MetricSparkline({
 
   return (
     <div className={className}>
-      <div className="flex items-stretch gap-1.5">
-        <div className="relative w-10 shrink-0" style={{ height: "2.5rem" }}>
-          {ticks.map((tick) => {
-            const top = (1 - (tick - yMin) / yRange) * 100;
-            return (
-              <span
-                key={tick}
-                className="absolute right-0 translate-y-[-50%] font-mono text-[9px] leading-none text-muted"
-                style={{ top: `${top}%` }}
-              >
-                {formatAxisValue(tick, unit)}
-              </span>
-            );
-          })}
-        </div>
+      <div className="rounded-lg border border-border bg-background px-2 pb-1.5 pt-2">
+        <div className="flex items-stretch gap-1.5">
+          <div className="relative w-10 shrink-0" style={{ height: "2.5rem" }}>
+            {ticks.map((tick) => {
+              const top = (1 - (tick - yMin) / yRange) * 100;
+              return (
+                <span
+                  key={tick}
+                  className="absolute right-0 translate-y-[-50%] font-mono text-[9px] leading-none text-muted"
+                  style={{ top: `${top}%` }}
+                >
+                  {formatAxisValue(tick, unit)}
+                </span>
+              );
+            })}
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <svg
-            viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-            className="h-10 w-full"
-            role="img"
-            aria-label={`Past hour from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
-          >
-            <g className="text-border">
-              <line
-                x1={axisX}
-                y1={PAD_TOP}
-                x2={axisX}
-                y2={PAD_TOP + plotH}
-                stroke="currentColor"
-                strokeWidth="0.6"
-              />
-              <line
-                x1={axisX}
-                y1={PAD_TOP + plotH}
-                x2={VIEW_W - PAD_RIGHT}
-                y2={PAD_TOP + plotH}
-                stroke="currentColor"
-                strokeWidth="0.6"
-              />
-              {ticks.map((tick) => {
-                const y = toY(tick);
-                return (
-                  <g key={tick}>
-                    <line x1={axisX - 2.5} y1={y} x2={axisX} y2={y} stroke="currentColor" strokeWidth="0.6" />
+          <div className="min-w-0 flex-1">
+            <svg
+              viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+              preserveAspectRatio="none"
+              className="block h-10 w-full"
+              role="img"
+              aria-label={`Past hour from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
+            >
+              <g className="text-border">
+                {ticks.map((tick) => {
+                  const y = toY(tick);
+                  return (
                     <line
+                      key={tick}
                       x1={axisX}
                       y1={y}
                       x2={VIEW_W - PAD_RIGHT}
@@ -157,27 +141,26 @@ export function MetricSparkline({
                       strokeWidth="0.35"
                       opacity="0.35"
                     />
-                  </g>
-                );
-              })}
-            </g>
+                  );
+                })}
+              </g>
 
-            {paths.map((d) => (
-              <path
-                key={d}
-                d={d}
-                fill="none"
-                className="text-cyan"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-
-          <div className="mt-0.5 flex justify-between font-mono text-[9px] text-muted">
-            <span>{formatAxisTime(plotted[0].t)}</span>
-            <span>{formatAxisTime(plotted[plotted.length - 1].t)}</span>
+              {paths.map((d) => (
+                <path
+                  key={d}
+                  d={d}
+                  fill="none"
+                  className="text-cyan"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            </svg>
+            <div className="mt-1 flex justify-between font-mono text-[9px] text-muted">
+              <span>{formatAxisTime(plotted[0].t)}</span>
+              <span>{formatAxisTime(plotted[plotted.length - 1].t)}</span>
+            </div>
           </div>
         </div>
       </div>

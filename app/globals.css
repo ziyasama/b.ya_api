@@ -5,6 +5,7 @@
   --foreground: #e8f4f8;
   --cyan: #22d3ee;
   --gold: #eab308;
+  --green: #4ade80;
   --muted: #8ba3ad;
   --panel: #0e1620;
   --border: #1c2a36;
@@ -15,6 +16,7 @@
   --color-foreground: var(--foreground);
   --color-cyan: var(--cyan);
   --color-gold: var(--gold);
+  --color-green: var(--green);
   --color-muted: var(--muted);
   --color-panel: var(--panel);
   --color-border: var(--border);

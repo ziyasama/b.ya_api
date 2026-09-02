@@ -24,8 +24,10 @@ export type BosphorusGeo = {
   strait: BoundingBox;
   /** Wider AIS box: Marmara -> strait -> Black Sea approaches. */
   approaches: BoundingBox;
-  /** Open-Meteo / CMEMS sample point (Istanbul / Bosphorus). */
+  /** Open-Meteo wind model fallback point. */
   point: { lat: number; lon: number };
+  /** Open-Meteo marine sample point (wave, swell, SST). */
+  wavePoint: { lat: number; lon: number };
 };
 
 export function getBosphorusGeo(): BosphorusGeo {
@@ -43,5 +45,6 @@ export function getBosphorusGeo(): BosphorusGeo {
       neLon: BOSPHORUS.approachLonMax(),
     },
     point: { lat: BOSPHORUS.lat(), lon: BOSPHORUS.lon() },
+    wavePoint: { lat: BOSPHORUS.waveLat(), lon: BOSPHORUS.waveLon() },
   };
 }
