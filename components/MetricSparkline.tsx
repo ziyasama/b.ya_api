@@ -1,4 +1,32 @@
-import type { HistoryPoint } from "@/lib/history/metrics";
+import { HISTORY_WINDOW_MS, type HistoryPoint } from "@/lib/history/metrics";
+
+const historyWindowHours = HISTORY_WINDOW_MS / 3_600_000;
+const historyWindowLabel = `Past ${historyWindowHours} h`;
+const MAX_SPARKLINE_POINTS = 120;
+
+function downsampleForDisplay(points: HistoryPoint[]): HistoryPoint[] {
+  if (points.length <= MAX_SPARKLINE_POINTS) return points;
+
+  const tStart = Date.parse(points[0].t);
+  const tEnd = Date.parse(points[points.length - 1].t);
+  const span = Math.max(tEnd - tStart, 1);
+  const bucketWidth = span / MAX_SPARKLINE_POINTS;
+  const buckets: HistoryPoint[][] = Array.from({ length: MAX_SPARKLINE_POINTS }, () => []);
+
+  for (const point of points) {
+    let idx = Math.floor((Date.parse(point.t) - tStart) / bucketWidth);
+    if (idx >= MAX_SPARKLINE_POINTS) idx = MAX_SPARKLINE_POINTS - 1;
+    buckets[idx].push(point);
+  }
+
+  const sampled: HistoryPoint[] = [];
+  for (const bucket of buckets) {
+    if (!bucket.length) continue;
+    const withValue = bucket.filter((point) => point.v != null);
+    sampled.push(withValue.length ? withValue[withValue.length - 1]! : bucket[bucket.length - 1]!);
+  }
+  return sampled;
+}
 
 const VIEW_W = 100;
 const VIEW_H = 44;
@@ -73,7 +101,8 @@ export function MetricSparkline({
   unit: string;
   className?: string;
 }) {
-  const plotted = points.filter((point): point is HistoryPoint & { v: number } => point.v != null);
+  const series = downsampleForDisplay(points);
+  const plotted = series.filter((point): point is HistoryPoint & { v: number } => point.v != null);
   if (plotted.length < 2) return null;
 
   const values = plotted.map((point) => point.v);
@@ -84,23 +113,24 @@ export function MetricSparkline({
 
   const plotW = VIEW_W - PAD_LEFT - PAD_RIGHT;
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM;
-  const x0 = points.findIndex((point) => point.v != null);
-  const x1 = points.findLastIndex((point) => point.v != null);
-  const xSpan = Math.max(x1 - x0, 1);
+  const t0 = Date.parse(series[0].t);
+  const t1 = Date.parse(series[series.length - 1].t);
+  const tSpan = Math.max(t1 - t0, 1);
 
-  const toX = (index: number) => PAD_LEFT + ((index - x0) / xSpan) * plotW;
+  const toX = (iso: string) => PAD_LEFT + ((Date.parse(iso) - t0) / tSpan) * plotW;
   const toY = (value: number) => PAD_TOP + (1 - (value - yMin) / yRange) * plotH;
   const axisX = PAD_LEFT;
 
-  const scaled = points.map((point, index) => {
+  const scaled = series.map((point) => {
     if (point.v == null) return null;
-    return { x: toX(index), y: toY(point.v) };
+    return { x: toX(point.t), y: toY(point.v) };
   });
 
   const paths = linePaths(scaled);
   if (!paths.length) return null;
 
-  const lastPoint = scaled[x1];
+  const lastIndex = scaled.findLastIndex((point) => point != null);
+  const lastPoint = lastIndex >= 0 ? scaled[lastIndex] : null;
 
   const tickLabels = ticks.map((tick) => formatAxisValue(tick, unit));
   const widestLabel = tickLabels.reduce((widest, label) =>
@@ -124,7 +154,7 @@ export function MetricSparkline({
               const isLast = index === ticks.length - 1;
               return (
                 <span
-                  key={tick}
+                  key={`${tick}-${index}`}
                   className="absolute right-0 font-mono text-[9px] leading-none tabular-nums text-muted"
                   style={{
                     top: `${top}%`,
@@ -144,14 +174,14 @@ export function MetricSparkline({
                 preserveAspectRatio="none"
                 className="block h-10 w-full overflow-visible"
                 role="img"
-                aria-label={`Past hour from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
+                aria-label={`${historyWindowLabel} from ${formatAxisTime(plotted[0].t)} to ${formatAxisTime(plotted[plotted.length - 1].t)}, ${formatAxisValue(min, unit)} to ${formatAxisValue(max, unit)} ${unit}`.trim()}
               >
                 <g className="text-border">
-                  {ticks.map((tick) => {
+                  {ticks.map((tick, index) => {
                     const y = toY(tick);
                     return (
                       <line
-                        key={tick}
+                        key={`${tick}-${index}`}
                         x1={axisX}
                         y1={y}
                         x2={VIEW_W - PAD_RIGHT}
@@ -164,13 +194,12 @@ export function MetricSparkline({
                   })}
                 </g>
 
-                {paths.map((d) => (
+                {paths.map((d, index) => (
                   <path
-                    key={d}
+                    key={index}
                     d={d}
                     fill="none"
-                    className="text-cyan"
-                    stroke="currentColor"
+                    stroke="var(--color-cyan)"
                     strokeWidth="1.5"
                     vectorEffect="non-scaling-stroke"
                   />
@@ -199,7 +228,7 @@ export function MetricSparkline({
           </div>
         </div>
       </div>
-      <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">Past 1 h</p>
+      <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">{historyWindowLabel}</p>
     </div>
   );
 }

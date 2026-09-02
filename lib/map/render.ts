@@ -106,7 +106,7 @@ export type RegionLabel = {
 };
 
 export const REGION_LABELS: RegionLabel[] = [
-  { lon: 29.6, lat: 41.46, text: "Black Sea", anchor: "end" },
+  { lon: 29.52, lat: 41.28, text: "Black Sea", anchor: "end" },
   { lon: 28.82, lat: 40.76, text: "Sea of Marmara" },
   { lon: 29.055, lat: 41.1, text: "Bosphorus" },
 ];

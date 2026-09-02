@@ -1,6 +1,8 @@
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
 
-export const HISTORY_WINDOW_MS = 3_600_000;
+export const HISTORY_WINDOW_MS = 14_400_000;
+/** PostgREST fetch cap — ~2 samples/min over the window, with headroom. */
+export const HISTORY_ROW_LIMIT = Math.ceil(HISTORY_WINDOW_MS / 60_000) * 4;
 
 export type MetricSeriesKey =
   | "windSpeed"

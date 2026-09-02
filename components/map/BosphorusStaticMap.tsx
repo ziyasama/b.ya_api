@@ -11,6 +11,9 @@ import { METAR_AIRPORTS, TIDE_GAUGES } from "@/lib/map/stations";
 
 const VIEW_W = 720;
 const VIEW_H = 420;
+/** Empty Black Sea water above the scan area — crop, don't squash. */
+const CROP_TOP = 25;
+const VISIBLE_H = VIEW_H - CROP_TOP;
 const CYAN = "#22d3ee";
 const GOLD = "#eab308";
 const MUTED = "#8ba3ad";
@@ -51,6 +54,96 @@ function Marker({
   );
 }
 
+/** Geographic north-up rose for the static scan map (not wind direction). */
+function MapCompass({ className }: { className?: string }) {
+  const cx = 34;
+  const cy = 34;
+
+  return (
+    <svg
+      viewBox="0 0 68 68"
+      role="img"
+      aria-label="Map orientation: north is up, south is down, west is left, east is right"
+      className={className}
+    >
+      <title>North is up</title>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={32}
+        fill={PANEL}
+        fillOpacity={0.9}
+        stroke={BORDER}
+        strokeWidth={1.25}
+      />
+      {([45, 135, 225, 315] as const).map((deg) => {
+        const rad = ((deg - 90) * Math.PI) / 180;
+        return (
+          <line
+            key={deg}
+            x1={cx + Math.cos(rad) * 21}
+            y1={cy + Math.sin(rad) * 21}
+            x2={cx + Math.cos(rad) * 26}
+            y2={cy + Math.sin(rad) * 26}
+            stroke={MUTED}
+            strokeWidth={0.75}
+            strokeLinecap="round"
+            opacity={0.55}
+          />
+        );
+      })}
+      <polygon points="34,18 30.75,34 37.25,34" fill={GOLD} />
+      <polygon points="34,50 30.75,34 37.25,34" fill={MUTED} opacity={0.4} />
+      <circle cx={cx} cy={cy} r={2.25} fill={GOLD} />
+      <text
+        x={cx}
+        y={11}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={GOLD}
+        fontSize={9}
+        fontFamily="monospace"
+        fontWeight={700}
+      >
+        N
+      </text>
+      <text
+        x={cx}
+        y={57}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={MUTED}
+        fontSize={8}
+        fontFamily="monospace"
+      >
+        S
+      </text>
+      <text
+        x={11}
+        y={cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={MUTED}
+        fontSize={8}
+        fontFamily="monospace"
+      >
+        W
+      </text>
+      <text
+        x={57}
+        y={cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={MUTED}
+        fontSize={8}
+        fontFamily="monospace"
+      >
+        E
+      </text>
+    </svg>
+  );
+}
+
 export function BosphorusStaticMap({
   geo,
   className,
@@ -76,15 +169,15 @@ export function BosphorusStaticMap({
 
   return (
     <div className={className ?? "flex flex-col gap-2"}>
-      <div className="overflow-hidden rounded-xl border border-border">
+      <div className="relative overflow-hidden rounded-xl border border-border">
       <svg
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        viewBox={`0 ${CROP_TOP} ${VIEW_W} ${VISIBLE_H}`}
         role="img"
-        aria-label="Map of the Bosphorus showing where each data source is sampled"
+        aria-label="Map of the Bosphorus showing where each data source is sampled. North is up."
         className="block h-auto w-full"
         preserveAspectRatio="xMidYMid meet"
       >
-        <rect width={VIEW_W} height={VIEW_H} fill={WATER} />
+        <rect y={CROP_TOP} width={VIEW_W} height={VISIBLE_H} fill={WATER} />
 
         <path
           d={aisApproachesPath}
@@ -201,6 +294,7 @@ export function BosphorusStaticMap({
           © Natural Earth
         </text>
       </svg>
+      <MapCompass className="pointer-events-none absolute bottom-2.5 left-2.5 h-14 w-14 drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)] sm:h-16 sm:w-16" />
       </div>
       <div className="space-y-2 px-1 text-xs leading-relaxed text-muted">
         <p className="font-mono text-[11px] uppercase tracking-wider text-cyan">

@@ -16,6 +16,7 @@ import {
   appendHistory,
   buildHistory,
   emptyHistory,
+  HISTORY_ROW_LIMIT,
   HISTORY_ROW_SELECT,
   HISTORY_WINDOW_MS,
   seriesPoints,
@@ -128,16 +129,18 @@ function trafficGroupNote(): string {
 
 export function DashboardLive({
   initial,
+  initialHistory,
   geo,
   radioUrl,
 }: {
   initial: BosphorusState | null;
+  initialHistory?: MetricHistory;
   geo: BosphorusGeo;
   radioUrl: string;
 }) {
   const [current, setCurrent] = useState<BosphorusState | null>(initial);
   const [previous, setPrevious] = useState<BosphorusState | null>(null);
-  const [history, setHistory] = useState<MetricHistory>(() => emptyHistory());
+  const [history, setHistory] = useState<MetricHistory>(() => initialHistory ?? emptyHistory());
   const [live, setLive] = useState(false);
 
   useEffect(() => {
@@ -155,12 +158,15 @@ export function DashboardLive({
         .from("bosphorus_state_logs")
         .select(HISTORY_ROW_SELECT)
         .gte("created_at", since)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .limit(HISTORY_ROW_LIMIT);
       if (cancelled || error || !data) return;
       setHistory(buildHistory(data as HistoryRow[]));
     };
 
-    void loadHistory();
+    if (!initialHistory) {
+      void loadHistory();
+    }
 
     const channel = supabase
       .channel("bosphorus_state_logs")
@@ -234,6 +240,7 @@ export function DashboardLive({
             previous={previous?.windDirection ?? null}
             unit="°"
             history={seriesPoints(history, "windDirection")}
+            compassDirection={current?.windDirection ?? null}
           />
         </MetricGroup>
 
