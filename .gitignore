@@ -40,6 +40,7 @@ env.local
 # vercel / railway
 .vercel
 .railway
+.tools
 
 # supabase CLI
 supabase/.temp

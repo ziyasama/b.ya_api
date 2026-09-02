@@ -2,24 +2,27 @@
 
 The web app is stateless. Do not write to the local filesystem at runtime.
 
-## Web service (this `railway.json`)
+## Single service (this `railway.json`)
+
+The collector runs in the same container as the dashboard. A second Railway
+service is not required, and must not be added: two replicas (or two
+services) means two AIS subscriptions and duplicate rows.
 
 | Setting | Value |
 | --- | --- |
 | Build | Nixpacks (detects Next.js) |
-| Start | `npm start` (`next start`) |
-| Health | HTTP on `$PORT` (Next.js reads `PORT`) |
+| Start | `npm run hub` (`next start` + `npm run worker`) |
+| Replicas | **1** |
+| Restart | on failure |
+| Overlap | 0 s so a deploy does not run two workers at once |
+| Health | HTTP on `$PORT` (Next.js still binds it) |
 
-Copy every key from [`.env.example`](../.env.example) into the Railway variables UI. Do not set `OSC_*` / `MIDI_*` on this service.
+The worker needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+`AISSTREAM_API_KEY` on this service. Do not set `OSC_*` / `MIDI_*`, and do
+not set Copernicus credentials.
 
-## Worker service (second Railway service, same repo)
-
-| Setting | Value |
-| --- | --- |
-| Start | `npm run worker` |
-| Restart | always / on failure |
-
-Needs the same Supabase and API keys. AISStream requires this long-lived process (not a cron one-shot).
+Once Railway logs show `persist.ok`, stop any local `npm run worker` so the
+laptop is not a second collector.
 
 ## OSC/MIDI
 
@@ -28,7 +31,8 @@ Run `npm run broadcast` on the **installation machine**, not in Railway. Virtual
 ## Checklist
 
 - [ ] `npm run build` succeeds in CI / Railway logs
-- [ ] `npm start` serves the app with `PORT`
-- [ ] Env vars match `.env.example`
-- [ ] Worker service is running and inserting into `bosphorus_state_logs`
+- [ ] `npm run hub` serves the app on `PORT` and logs `persist.ok`
+- [ ] Replicas stay at 1
+- [ ] Env vars include the two keys plus `NEXT_PUBLIC_SUPABASE_URL`
+- [ ] Local `npm run worker` is stopped once Railway is inserting
 - [ ] `/` loads and updates without refresh

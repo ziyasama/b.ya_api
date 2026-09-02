@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "hub": "tsx workers/hub.ts",
     "lint": "eslint",
     "worker": "tsx workers/index.ts",
     "broadcast": "tsx workers/broadcast.ts",

@@ -82,9 +82,14 @@ level need no keys; only AISStream does, and it works.
 
 `/dashboard` mobile-first, dark cyan/gold, Realtime via `DashboardLive`.
 
-## Step 7 — Railway — DONE (not deployed)
+## Step 7 — Railway — worker rides the existing web service
 
-`docs/RAILWAY.md`, `railway.json`. Deploy when Railway access is available.
+No second Railway service. Hobby cannot isolate this project from the rest of
+the workspace, so the collector starts beside Next.js via `npm run hub`
+(`workers/hub.ts`). `railway.json` pins **one replica** and zero deploy
+overlap. Needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+`AISSTREAM_API_KEY` on the existing service. Success: laptop closed,
+`created_at` still advancing.
 
 ## Step 8 — OSC/MIDI scaffold — DONE
 
