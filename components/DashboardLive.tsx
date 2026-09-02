@@ -9,6 +9,16 @@ import { VesselList } from "@/components/VesselList";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { BosphorusGeo } from "@/lib/map/geo";
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
+import {
+  appendHistory,
+  buildHistory,
+  emptyHistory,
+  HISTORY_ROW_SELECT,
+  HISTORY_WINDOW_MS,
+  seriesPoints,
+  type HistoryRow,
+  type MetricHistory,
+} from "@/lib/history/metrics";
 import { rowToState } from "@/lib/standardize/row";
 import type { BosphorusState } from "@/lib/standardize/types";
 
@@ -31,25 +41,39 @@ function MetricNote({
   );
 }
 
-function windNote(source: string | null | undefined): string {
-  if (source === "metar") {
-    return "Istanbul airport anemometers, 15–25 km inland. Median of LTFM, LTBA and LTFJ.";
-  }
-  if (source === "model") {
-    return "Forecast model — METAR unavailable, expect an underread.";
-  }
-  return "Wind unavailable.";
+function MetricGroup({
+  title,
+  children,
+  note,
+}: {
+  title: string;
+  children: React.ReactNode;
+  note: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
+        {title}
+      </h3>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:gap-3">
+        {children}
+      </div>
+      <div className="min-w-0">{note}</div>
+    </div>
+  );
 }
 
-function windDirNote(source: string | null | undefined): string {
-  if (source === "metar") {
-    return "Same airport anemometers as wind speed. Circular mean, so 350° and 10° do not average to south.";
-  }
-  if (source === "model") {
-    return "Forecast model direction — METAR unavailable.";
-  }
-  return "Wind direction unavailable.";
-}
+const METAR_AIRPORTS =
+  "LTFM (Istanbul Airport), LTBA (Atatürk) and LTFJ (Sabiha Gökçen)";
+
+const METAR_GLOSS =
+  "Meteorological Aerodrome Report — the standard airport weather observation published for pilots";
+
+const AIS_GLOSS =
+  "Automatic Identification System — the international ship-tracking network vessels use to broadcast position, course, and identity by radio";
+
+const AISSTREAM_GLOSS =
+  "a service that relays live AIS transmissions from ships worldwide";
 
 function windSourceLabel(source: string | null | undefined): string {
   if (source === "metar") return "METAR · measured";
@@ -57,12 +81,34 @@ function windSourceLabel(source: string | null | undefined): string {
   return "Wind · unavailable";
 }
 
-function waveNote(current: BosphorusState | null): string {
-  const cell =
-    current?.sampleLat != null
-      ? ` (cell ${current.sampleLat.toFixed(2)}, ${current.sampleLon?.toFixed(2)})`
-      : "";
-  return `Modelled at the northern mouth${cell}. The wave model has no cell inside the strait, so this is the open Black Sea water that then flows south.`;
+function waveSampleLabel(current: BosphorusState | null): string {
+  if (current?.sampleLat != null && current.sampleLon != null) {
+    return `open Black Sea water off the northern mouth (${current.sampleLat.toFixed(2)}°N, ${current.sampleLon.toFixed(2)}°E)`;
+  }
+  return "open Black Sea water off the northern mouth";
+}
+
+function windGroupNote(source: string | null | undefined): string {
+  if (source === "metar") {
+    return `Real measurements from airport weather stations via METAR (${METAR_GLOSS}). Wind speed is the median across ${METAR_AIRPORTS}; they sit 15–25 km inland, not on the water, but capture the same wind system that reaches the strait. Wind direction is a circular average from the same stations (350° and 10° average to north, not south). Compass bearing: 0° north, 90° east, 180° south, 270° west.`;
+  }
+  if (source === "model") {
+    return `Computer forecast from Open-Meteo (a free online weather model) at 10 m height — used only when airport METAR (${METAR_GLOSS}) are missing or too old. Models tend to underread strait wind; on 2 Sep 2026 the forecast showed about 3 m/s while anemometers read 5–6 m/s. Speed and direction share the same fallback.`;
+  }
+  return `No wind reading this cycle — neither live airport METAR (${METAR_GLOSS}) nor the Open-Meteo (online weather model) fallback returned a usable value.`;
+}
+
+function marineGroupNote(current: BosphorusState | null): string {
+  const where = waveSampleLabel(current);
+  return `All four readings come from the Open-Meteo (free online weather and marine forecast service) marine model at ${where}. The Bosphorus is narrower than the model grid, so there is no in-strait cell — we use open Black Sea water off the northern mouth, the sea that feeds the strait, instead of a sheltered Marmara inshore point that would read near zero. Wave is significant height (roughly the average of the highest third of waves). Wave period is seconds between crests — short is chop from local wind, long is swell from open water. Swell is long-period energy from distant storms, separate from the shorter wind-driven sea. Water temp is sea surface temperature; tide gauges measure height only and have no thermometer.`;
+}
+
+function seaLevelGroupNote(): string {
+  return "IOC (Intergovernmental Oceanographic Commission sea level monitoring network) radar tide gauges on either side of the strait. Sea level head is the Black Sea minus Marmara anomaly (how far each gauge sits above or below its own recent average, not the raw chart waterline): Şile on the Black Sea coast minus Yalova on the Marmara side (İğneada and Marmara Ereğlisi are backups if a station goes quiet). Each gauge is compared to its own 24-hour average so local datums (local zero points) do not skew the comparison. Positive head means the Black Sea sits higher and surface water tends to flow south — a height difference in metres, not a current speed. Black Sea alone is Şile's anomaly — how much higher or lower than its recent average.";
+}
+
+function trafficGroupNote(): string {
+  return `Live AIS (${AIS_GLOSS}). AISStream (${AISSTREAM_GLOSS}) counts ships in a box around the strait. Vessels is the total live count. Northbound and southbound split that roster by whether each ship's last two fixes moved toward the Black Sea or the Marmara; a ship seen only once has no direction yet and is not counted in either direction. During the first minute after connecting, an empty feed is treated as unavailable (a broken feed), not as zero ships, because vessels check in over several minutes.`;
 }
 
 export function DashboardLive({
@@ -78,6 +124,7 @@ export function DashboardLive({
 }) {
   const [current, setCurrent] = useState<BosphorusState | null>(initial);
   const [previous, setPrevious] = useState<BosphorusState | null>(null);
+  const [history, setHistory] = useState<MetricHistory>(() => emptyHistory());
   const [live, setLive] = useState(false);
   const [showMap, setShowMap] = useState(false);
 
@@ -90,13 +137,28 @@ export function DashboardLive({
       return;
     }
 
+    const loadHistory = async () => {
+      const since = new Date(Date.now() - HISTORY_WINDOW_MS).toISOString();
+      const { data, error } = await supabase!
+        .from("bosphorus_state_logs")
+        .select(HISTORY_ROW_SELECT)
+        .gte("created_at", since)
+        .order("created_at", { ascending: true });
+      if (cancelled || error || !data) return;
+      setHistory(buildHistory(data as HistoryRow[]));
+    };
+
+    void loadHistory();
+
     const channel = supabase
       .channel("bosphorus_state_logs")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "bosphorus_state_logs" },
         (payload) => {
-          const next = rowToState(payload.new as BosphorusStateRow);
+          const row = payload.new as BosphorusStateRow;
+          const next = rowToState(row);
+          setHistory((prev) => appendHistory(prev, row as HistoryRow));
           setCurrent((prev) => {
             setPrevious(prev);
             return next;
@@ -126,6 +188,7 @@ export function DashboardLive({
               ? new Date(current.createdAt).toLocaleString()
               : "Waiting for first log row"}
             {live ? " · realtime" : " · connecting"}
+            {" · logged every ~2 min"}
           </p>
         </div>
         <RadioListen url={radioUrl} />
@@ -145,134 +208,123 @@ export function DashboardLive({
           compact
         />
       ) : (
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(11rem,13.5rem)_1fr] sm:items-center sm:gap-x-6 sm:gap-y-3">
-            <p className="hidden font-mono text-xs uppercase tracking-widest text-muted sm:block">
-              Reading
-            </p>
-            <p className="hidden font-mono text-xs uppercase tracking-widest text-muted sm:block">
-              Where it comes from
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
+        <section className="flex flex-col gap-8">
+            <MetricGroup
+              title="Wind"
+              note={
+                <MetricNote source={windSourceLabel(current?.windSource)}>
+                  {windGroupNote(current?.windSource)}
+                </MetricNote>
+              }
+            >
               <MetricCard
                 label="Wind"
                 value={current?.available.wind ? current.windSpeed : null}
                 previous={previous?.windSpeed ?? null}
                 unit="m/s"
+                history={seriesPoints(history, "windSpeed")}
               />
-              <MetricNote source={windSourceLabel(current?.windSource)}>
-                {windNote(current?.windSource)}
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
-              <MetricCard
-                label="Wave"
-                value={current?.available.wave ? current.waveHeight : null}
-                previous={previous?.waveHeight ?? null}
-                unit="m"
-              />
-              <MetricNote source="Open-Meteo marine · modelled">
-                {waveNote(current)}
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
-              <MetricCard
-                label="Sea level head"
-                value={current?.available.seaLevel ? current.seaLevelHead : null}
-                previous={previous?.seaLevelHead ?? null}
-                unit="m"
-              />
-              <MetricNote source="IOC tide gauges · derived">
-                Black Sea minus Marmara, from tide gauges; positive drives water south. Not a current in m/s.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
-              <MetricCard
-                label="Water temp"
-                value={current?.available.seaSurfaceTemp ? current.seaSurfaceTemp : null}
-                previous={previous?.seaSurfaceTemp ?? null}
-                unit="°C"
-              />
-              <MetricNote source="Open-Meteo marine · modelled">
-                Sea surface temperature from the same northern-mouth cell as the waves. Tide gauges have no thermistor; this is the water that then flows south through the strait.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
-              <MetricCard
-                label="Wave period"
-                value={current?.wavePeriod ?? null}
-                previous={previous?.wavePeriod ?? null}
-                unit="s"
-              />
-              <MetricNote source="Open-Meteo marine · modelled">
-                Seconds between crests in that Black Sea cell — not inside the strait. A short period is chop; a longer one is swell riding in from open water.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
-              <MetricCard
-                label="Swell"
-                value={current?.swellHeight ?? null}
-                previous={previous?.swellHeight ?? null}
-                unit="m"
-              />
-              <MetricNote source="Open-Meteo marine · modelled">
-                Swell height at the northern mouth. Distant weather's leftover energy, distinct from the local wind sea.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
               <MetricCard
                 label="Wind dir"
                 value={current?.windDirection ?? null}
                 previous={previous?.windDirection ?? null}
                 unit="°"
+                history={seriesPoints(history, "windDirection")}
               />
-              <MetricNote source={windSourceLabel(current?.windSource)}>
-                {windDirNote(current?.windSource)}
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
+            </MetricGroup>
+
+            <MetricGroup
+              title="Waves & surface"
+              note={
+                <MetricNote source="Open-Meteo marine · modelled">
+                  {marineGroupNote(current)}
+                </MetricNote>
+              }
+            >
+              <MetricCard
+                label="Wave"
+                value={current?.available.wave ? current.waveHeight : null}
+                previous={previous?.waveHeight ?? null}
+                unit="m"
+                history={seriesPoints(history, "waveHeight")}
+              />
+              <MetricCard
+                label="Wave period"
+                value={current?.wavePeriod ?? null}
+                previous={previous?.wavePeriod ?? null}
+                unit="s"
+                history={seriesPoints(history, "wavePeriod")}
+              />
+              <MetricCard
+                label="Swell"
+                value={current?.swellHeight ?? null}
+                previous={previous?.swellHeight ?? null}
+                unit="m"
+                history={seriesPoints(history, "swellHeight")}
+              />
+              <MetricCard
+                label="Water temp"
+                value={current?.available.seaSurfaceTemp ? current.seaSurfaceTemp : null}
+                previous={previous?.seaSurfaceTemp ?? null}
+                unit="°C"
+                history={seriesPoints(history, "seaSurfaceTemp")}
+              />
+            </MetricGroup>
+
+            <MetricGroup
+              title="Sea level"
+              note={
+                <MetricNote source="IOC tide gauges · measured">
+                  {seaLevelGroupNote()}
+                </MetricNote>
+              }
+            >
+              <MetricCard
+                label="Sea level head"
+                value={current?.available.seaLevel ? current.seaLevelHead : null}
+                previous={previous?.seaLevelHead ?? null}
+                unit="m"
+                history={seriesPoints(history, "seaLevelHead")}
+              />
               <MetricCard
                 label="Black Sea"
                 value={current?.seaLevelBlackSea ?? null}
                 previous={previous?.seaLevelBlackSea ?? null}
                 unit="m"
+                history={seriesPoints(history, "seaLevelBlackSea")}
               />
-              <MetricNote source="IOC · Şile tide gauge">
-                Anomaly at the Black Sea end, not the raw waterline. Each station is compared to its own rolling mean so differing local datums do not fight.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
+            </MetricGroup>
+
+            <MetricGroup
+              title="Traffic"
+              note={
+                <MetricNote source="AISStream · measured">
+                  {trafficGroupNote()}
+                </MetricNote>
+              }
+            >
               <MetricCard
                 label="Vessels"
                 value={current?.available.vessels ? current.vesselCount : null}
                 previous={previous?.vesselCount ?? null}
                 unit=""
+                history={seriesPoints(history, "vesselCount")}
               />
-              <MetricNote source="AISStream · measured">
-                Live AIS roster in the strait. A silent feed is treated as unavailable, not as an empty Bosphorus — ships take a few minutes to check in.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
               <MetricCard
                 label="Northbound"
                 value={current?.available.vessels ? current.northboundCount : null}
                 previous={previous?.northboundCount ?? null}
                 unit=""
+                history={seriesPoints(history, "northboundCount")}
               />
-              <MetricNote source="AIS · derived">
-                Ships whose last latitude change was north, toward the Black Sea. A vessel with only one fix has no transit yet.
-              </MetricNote>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:contents">
               <MetricCard
                 label="Southbound"
                 value={current?.available.vessels ? current.southboundCount : null}
                 previous={previous?.southboundCount ?? null}
                 unit=""
+                history={seriesPoints(history, "southboundCount")}
               />
-              <MetricNote source="AIS · derived">
-                Ships whose last latitude change was south, toward the Marmara.
-              </MetricNote>
-            </div>
+            </MetricGroup>
         </section>
       )}
 

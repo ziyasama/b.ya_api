@@ -1,15 +1,19 @@
+import { MetricSparkline } from "@/components/MetricSparkline";
 import { TrendArrow } from "@/components/TrendArrow";
+import type { HistoryPoint } from "@/lib/history/metrics";
 
 export function MetricCard({
   label,
   value,
   previous,
   unit,
+  history,
 }: {
   label: string;
   value: number | null;
   previous: number | null;
   unit: string;
+  history?: HistoryPoint[];
 }) {
   return (
     <div className="h-full rounded-xl border border-border bg-panel p-4">
@@ -21,6 +25,7 @@ export function MetricCard({
       <p className="mt-2 text-xs">
         <TrendArrow current={value} previous={previous} />
       </p>
+      {history ? <MetricSparkline points={history} unit={unit} className="mt-3" /> : null}
     </div>
   );
 }
