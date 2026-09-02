@@ -16,6 +16,7 @@ const CROP_TOP = 25;
 const VISIBLE_H = VIEW_H - CROP_TOP;
 const CYAN = "#22d3ee";
 const GOLD = "#eab308";
+const NEEDLE = "#ef4444";
 const MUTED = "#8ba3ad";
 const PANEL = "#0e1620";
 const LAND = "#0a1218";
@@ -92,15 +93,15 @@ function MapCompass({ className }: { className?: string }) {
           />
         );
       })}
-      <polygon points="34,18 30.75,34 37.25,34" fill={GOLD} />
+      <polygon points="34,18 30.75,34 37.25,34" fill={NEEDLE} />
       <polygon points="34,50 30.75,34 37.25,34" fill={MUTED} opacity={0.4} />
-      <circle cx={cx} cy={cy} r={2.25} fill={GOLD} />
+      <circle cx={cx} cy={cy} r={2.25} fill={NEEDLE} />
       <text
         x={cx}
         y={11}
         textAnchor="middle"
         dominantBaseline="central"
-        fill={GOLD}
+        fill={NEEDLE}
         fontSize={9}
         fontFamily="monospace"
         fontWeight={700}
@@ -296,8 +297,8 @@ export function BosphorusStaticMap({
       </svg>
       <MapCompass className="pointer-events-none absolute bottom-2.5 left-2.5 h-14 w-14 drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)] sm:h-16 sm:w-16" />
       </div>
-      <div className="space-y-2 px-1 text-xs leading-relaxed text-muted">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-cyan">
+      <div className="space-y-2 px-1 pt-1.5 text-xs leading-relaxed text-muted">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-cyan">
           Map key
         </p>
         <ul className="space-y-1.5">

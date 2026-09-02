@@ -40,7 +40,7 @@ function MetricNote({
   return (
     <div className="px-1 sm:px-0">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-xs uppercase tracking-wider text-cyan">
+        <p className="font-mono text-xs font-bold uppercase tracking-wider text-cyan">
           {source}
         </p>
         {statusKey ? (
@@ -66,7 +66,7 @@ function MetricGroup({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
-        <h3 className="shrink-0 font-mono text-xs uppercase tracking-[0.25em] text-foreground/80">
+        <h3 className="shrink-0 font-mono text-xs font-bold uppercase tracking-[0.25em] text-foreground/80">
           {title}
         </h3>
         <div className="h-px flex-1 bg-foreground/25" aria-hidden="true" />
@@ -197,7 +197,7 @@ export function DashboardLive({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-cyan">
+          <p className="font-mono text-sm uppercase tracking-[0.35em] text-cyan">
             Bosphorus
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Live state</h1>
@@ -206,7 +206,6 @@ export function DashboardLive({
               ? new Date(current.createdAt).toLocaleString()
               : "Waiting for first log row"}
             {live ? " · realtime" : " · connecting"}
-            {" · logged every ~2 min"}
           </p>
         </div>
         <RadioListen url={radioUrl} />

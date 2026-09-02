@@ -45,19 +45,19 @@ export function WindCompass({
       })}
       {active ? (
         <g transform={`rotate(${rotation} 24 24)`}>
-          <polygon points="24,7 21.5,24 26.5,24" fill="#ef4444" />
+          <polygon points="24,10 22,23 26,23" fill="#ef4444" />
           <line
             x1="24"
             y1="24"
             x2="24"
-            y2="38"
+            y2="35"
             stroke="#ef4444"
-            strokeWidth="2"
+            strokeWidth="1.75"
             strokeLinecap="round"
           />
         </g>
       ) : null}
-      <circle cx="24" cy="24" r="2.5" fill={active ? "#ef4444" : "var(--muted)"} />
+      <circle cx="24" cy="24" r="2" fill={active ? "#ef4444" : "var(--muted)"} />
     </svg>
   );
 }
