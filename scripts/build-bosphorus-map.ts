@@ -6,15 +6,15 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MapFeature, MapFeatureCollection, MapLonLat } from "@/lib/map/cartography.types";
+import { defaultCartographyBounds } from "@/lib/map/bounds";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "lib/map");
 
-/** Matches default BOSPHORUS_APPROACH_* env bounds. */
-const BBOX = { swLon: 28.7, swLat: 40.85, neLon: 29.4, neLat: 41.4 };
+const BBOX = defaultCartographyBounds();
 
 const SOURCES = {
-  land: "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_land.geojson",
+  land: "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
   coastline:
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson",
 };
@@ -162,8 +162,8 @@ async function clip(url: string, tolerance: number): Promise<MapFeature[]> {
 
 async function main() {
   const [land, coastline] = await Promise.all([
-    clip(SOURCES.land, 0.002),
-    clip(SOURCES.coastline, 0.0008),
+    clip(SOURCES.land, 0.0008),
+    clip(SOURCES.coastline, 0.0005),
   ]);
 
   const landPath = join(OUT_DIR, "bosphorus-land.json");

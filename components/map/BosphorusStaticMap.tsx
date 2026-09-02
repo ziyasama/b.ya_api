@@ -1,4 +1,5 @@
 import type { BosphorusGeo } from "@/lib/map/geo";
+import { mapDisplayBounds, isWithinBounds } from "@/lib/map/bounds";
 import { bosphorusCoastline, bosphorusLand } from "@/lib/map/cartography";
 import {
   coastlinePathsFromCollection,
@@ -58,7 +59,7 @@ export function BosphorusStaticMap({
   compact?: boolean;
   className?: string;
 }) {
-  const bounds = geo.approaches;
+  const bounds = mapDisplayBounds(geo);
   const project = (lon: number, lat: number) =>
     projectLonLat(lon, lat, bounds, VIEW_W, VIEW_H);
   const wind = project(geo.point.lon, geo.point.lat);
@@ -131,7 +132,7 @@ export function BosphorusStaticMap({
           <title>AIS strait scan area (tight box)</title>
         </path>
 
-        {REGION_LABELS.map(([lon, lat, text]) => {
+        {REGION_LABELS.map(({ lon, lat, text, anchor }) => {
           const { x, y } = project(lon, lat);
           return (
             <text
@@ -142,13 +143,16 @@ export function BosphorusStaticMap({
               fontSize={11}
               fontFamily="monospace"
               opacity={0.85}
+              textAnchor={anchor ?? "start"}
             >
               {text}
             </text>
           );
         })}
 
-        {TIDE_GAUGES.map((station) => {
+        {TIDE_GAUGES.filter((station) =>
+          isWithinBounds(station.lon, station.lat, bounds),
+        ).map((station) => {
           const { x, y } = project(station.lon, station.lat);
           const isBackup = station.id === "igne" || station.id === "maer";
           return (
@@ -211,7 +215,8 @@ export function BosphorusStaticMap({
             <span>
               <span className="text-foreground">Soft cyan wash</span> — AIS maritime
               traffic scan area: a tight strait box inside the wider Marmara → strait →
-              Black Sea approaches box. Not live vessel positions.
+              Black Sea approaches box. This is where live vessel counts are calculated
+              from.
             </span>
           </li>
           <li className="flex items-start gap-2">
@@ -231,7 +236,8 @@ export function BosphorusStaticMap({
             />
             <span>
               <span className="text-foreground">White dots</span> — IOC tide gauges
-              (Şile, Yalova; İğneada and Marmara Ereğlisi as backups) for sea level.
+              on the map (Şile · Black Sea, Yalova · Marmara). İğneada and Marmara
+              Ereğlisi are farther-away backups and are not drawn here.
             </span>
           </li>
           <li className="flex items-start gap-2">

@@ -98,8 +98,15 @@ export function coastlinePathsFromCollection(
   return paths;
 }
 
-export const REGION_LABELS: [number, number, string][] = [
-  [28.82, 41.32, "Black Sea"],
-  [28.88, 40.9, "Sea of Marmara"],
-  [29.055, 41.1, "Bosphorus"],
+export type RegionLabel = {
+  lon: number;
+  lat: number;
+  text: string;
+  anchor?: "start" | "middle" | "end";
+};
+
+export const REGION_LABELS: RegionLabel[] = [
+  { lon: 29.6, lat: 41.46, text: "Black Sea", anchor: "end" },
+  { lon: 28.82, lat: 40.76, text: "Sea of Marmara" },
+  { lon: 29.055, lat: 41.1, text: "Bosphorus" },
 ];
