@@ -68,8 +68,17 @@ export function toBosphorusState(input: {
     size: v.size,
     shipName: v.shipName,
     shipType: v.shipType,
+    transit: v.transit,
   }));
   const vesselCount = ais?.vesselCount ?? null;
+  const northboundCount =
+    vesselCount == null
+      ? null
+      : vesselData.filter((v) => v.transit === "northbound").length;
+  const southboundCount =
+    vesselCount == null
+      ? null
+      : vesselData.filter((v) => v.transit === "southbound").length;
 
   const provenance: Provenance = {};
   if (windSpeed != null) {
@@ -143,6 +152,8 @@ export function toBosphorusState(input: {
     seaLevelMarmara,
     seaLevelHead,
     vesselCount,
+    northboundCount,
+    southboundCount,
     vesselData,
 
     currentDirection: null,
@@ -169,6 +180,8 @@ export function toBosphorusState(input: {
       seaSurfaceTemp: normalize(seaSurfaceTemp, "seaSurfaceTemp"),
       seaLevelHead: normalize(seaLevelHead, "seaLevelHead"),
       vesselCount: normalize(vesselCount, "vesselCount"),
+      northboundCount: normalize(northboundCount, "northboundCount"),
+      southboundCount: normalize(southboundCount, "southboundCount"),
 
       currentDirection: 0,
       currentSpeed: 0,

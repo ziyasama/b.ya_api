@@ -58,6 +58,8 @@ export type AisVesselRaw = {
   shipName: string | null;
   shipType: number | null;
   lastSeen: string;
+  /** Sign of latitude change vs the previous fix. Null until the vessel has moved. */
+  transit: "northbound" | "southbound" | null;
 };
 
 export type AisSnapshotRaw = {

@@ -3,6 +3,8 @@ import { BOSPHORUS, env, envNumber } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { recall, remember } from "@/lib/fetchers/last-known";
 import type { AisSnapshotRaw, AisVesselRaw, FetcherResult } from "@/lib/fetchers/types";
+import { detectCrossings, transitDirection } from "@/lib/vessels/events";
+import type { GateCrossing } from "@/lib/vessels/events";
 
 const STORE_KEY = "ais";
 
@@ -80,6 +82,7 @@ export class AisStreamFetcher {
   private confirmed = false;
   private confirmedAt = 0;
   private frames = 0;
+  private pendingEvents: GateCrossing[] = [];
 
   start(): void {
     this.shouldRun = true;
@@ -92,7 +95,9 @@ export class AisStreamFetcher {
    */
   hydrate(vessels: AisVesselRaw[]): void {
     for (const vessel of vessels) {
-      if (!this.vessels.has(vessel.mmsi)) this.vessels.set(vessel.mmsi, vessel);
+      if (!this.vessels.has(vessel.mmsi)) {
+        this.vessels.set(vessel.mmsi, { ...vessel, transit: vessel.transit ?? null });
+      }
     }
     if (vessels.length) log.info("ais.hydrated", { count: vessels.length });
   }
@@ -100,6 +105,13 @@ export class AisStreamFetcher {
   /** Live vessels, for persisting back to the durable store. */
   roster(): AisVesselRaw[] {
     return snapshotFromMap(this.vessels).vessels;
+  }
+
+  /** Drain gate crossings detected since the last flush. */
+  drainEvents(): GateCrossing[] {
+    const events = this.pendingEvents;
+    this.pendingEvents = [];
+    return events;
   }
 
   stop(): void {
@@ -292,14 +304,38 @@ export class AisStreamFetcher {
         ? staticData.Dimension.A + staticData.Dimension.B
         : existing?.size ?? null;
 
+    const lastSeen = toIsoTime(meta?.time_utc ?? meta?.timeUtc);
+    const shipName = meta?.ShipName?.trim() || existing?.shipName || null;
+    let transit = existing?.transit ?? null;
+    if (existing) {
+      const nextDir = transitDirection(existing, { lat, lon });
+      if (nextDir) transit = nextDir;
+      this.pendingEvents.push(
+        ...detectCrossings(
+          {
+            mmsi,
+            lat: existing.lat,
+            lon: existing.lon,
+            lastSeen: existing.lastSeen,
+            shipName,
+          },
+          { mmsi, lat, lon, lastSeen, shipName },
+        ),
+      );
+      if (this.pendingEvents.length > 200) {
+        this.pendingEvents = this.pendingEvents.slice(-200);
+      }
+    }
+
     const vessel: AisVesselRaw = {
       mmsi,
       lat,
       lon,
       size: length,
-      shipName: meta?.ShipName?.trim() || existing?.shipName || null,
+      shipName,
       shipType: staticData?.Type ?? existing?.shipType ?? null,
-      lastSeen: toIsoTime(meta?.time_utc ?? meta?.timeUtc),
+      lastSeen,
+      transit,
     };
     this.vessels.set(mmsi, vessel);
     remember(STORE_KEY, snapshotFromMap(this.vessels));

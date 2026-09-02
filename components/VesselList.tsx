@@ -17,6 +17,11 @@ export function VesselList({ vessels }: { vessels: VesselRecord[] }) {
             {vessel.shipName ?? "unknown"}
           </span>
           <span>
+            {vessel.transit === "northbound"
+              ? "N"
+              : vessel.transit === "southbound"
+                ? "S"
+                : "—"}{" "}
             {vessel.lat.toFixed(3)}, {vessel.lon.toFixed(3)}
           </span>
         </li>

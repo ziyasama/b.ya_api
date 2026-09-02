@@ -102,3 +102,21 @@ overlap. Needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 ## Step 10 — Broadcaster — DONE (dry-run default)
 
 `npm run broadcast`. `OSC_MIDI_DRY_RUN=true` logs instead of opening ports. Live Ableton/Max/SuperCollider calibration still outstanding.
+
+## Step 12 — Vessel events — DONE, 2 Sep 2026
+
+Transit direction is the sign of each vessel's latitude change (northbound
+to the Black Sea, southbound to the Marmara). Gate crossings are intersections
+with the Port of Istanbul lighthouse lines: Rumeli–Anadolu (north) and
+Ahırkapı–İnciburnu (south). Written to `vessel_events`. Jitter and AIS gaps
+longer than 15 minutes are not events.
+
+Migration `0003_vessel_events.sql` is **applied**.
+
+## Step 13 — Radio + composer slot — BUILT, run locally
+
+`radio/` Docker image: JACK dummy, SuperCollider, ffmpeg 96 kbps MP3, Icecast.
+Hot-reloadable patch at `radio/patch/live.scd`. Contract:
+`docs/SIGNAL_CONTRACT.md`. Not deployed to Railway (Hobby workspace).
+`docker compose -f radio/docker-compose.yml up --build` after inventing the
+two Icecast passwords in `.env.local`.

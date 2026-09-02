@@ -17,6 +17,8 @@ export const RANGES = {
   seaSurfaceTemp: { min: 6, max: 28 },
   seaLevelHead: { min: -0.3, max: 0.3 },
   vesselCount: { min: 0, max: 80 },
+  northboundCount: { min: 0, max: 80 },
+  southboundCount: { min: 0, max: 80 },
 
   // Retired with the CMEMS ocean column. Always 0 for new rows.
   currentDirection: { min: 0, max: 360 },

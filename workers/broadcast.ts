@@ -4,7 +4,7 @@ import { log } from "@/lib/logger";
 import { createBroadcaster } from "@/lib/osc-midi/broadcaster";
 import { rowToState } from "@/lib/standardize/row";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
-import type { BosphorusStateRow } from "@/lib/supabase/database.types";
+import type { BosphorusStateRow, VesselEventRow } from "@/lib/supabase/database.types";
 
 config({ path: ".env.local" });
 config();
@@ -55,6 +55,13 @@ function main(): void {
         const row = payload.new as BosphorusStateRow;
         lastId = row.id;
         broadcaster.emit(rowToState(row));
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "vessel_events" },
+      (payload) => {
+        broadcaster.emitCrossing(payload.new as VesselEventRow);
       },
     )
     .subscribe((status) => {

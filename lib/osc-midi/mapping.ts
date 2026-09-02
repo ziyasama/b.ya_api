@@ -23,7 +23,16 @@ export const SIGNAL_MAP: MappingTarget[] = [
   { field: "seaSurfaceTemp", oscAddress: "/bosphorus/sea/temp", midiCc: 6, midiChannel: 0 },
   { field: "seaLevelHead", oscAddress: "/bosphorus/sea/head", midiCc: 7, midiChannel: 0 },
   { field: "vesselCount", oscAddress: "/bosphorus/vessels/count", midiCc: 8, midiChannel: 0 },
+  { field: "northboundCount", oscAddress: "/bosphorus/vessels/northbound", midiCc: 9, midiChannel: 0 },
+  { field: "southboundCount", oscAddress: "/bosphorus/vessels/southbound", midiCc: 10, midiChannel: 0 },
 ];
+
+/** Gate crossing bangs. Sent as 1.0 at the moment of crossing, not as a level. */
+export const GATE_EVENT_OSC = {
+  north: "/bosphorus/event/gate/north",
+  south: "/bosphorus/event/gate/south",
+  any: "/bosphorus/event/gate",
+} as const;
 
 /** Availability flag → OSC address, sent as 0.0 or 1.0 so a patch can drop a voice. */
 export const AVAILABILITY_MAP: Array<{ field: string; oscAddress: string }> = [

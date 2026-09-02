@@ -3,6 +3,7 @@ import { envNumber } from "@/lib/env";
 import { log } from "@/lib/logger";
 import type { AisVesselRaw } from "@/lib/fetchers/types";
 import type { VesselPositionRow } from "@/lib/supabase/database.types";
+import type { GateCrossing } from "@/lib/vessels/events";
 
 /**
  * Durable vessel roster. AISStream is event-driven, so a fresh worker sees an
@@ -41,6 +42,7 @@ export async function loadRoster(): Promise<AisVesselRaw[]> {
     shipName: row.ship_name,
     shipType: row.ship_type,
     lastSeen: row.last_seen,
+    transit: null,
   }));
 }
 
@@ -68,4 +70,36 @@ export async function saveRoster(vessels: AisVesselRaw[]): Promise<void> {
     return;
   }
   log.debug("vessels.saved", { count: rows.length });
+}
+
+export async function saveEvents(events: GateCrossing[]): Promise<void> {
+  if (!events.length) return;
+  const supabase = createAdminSupabase();
+  const rows = events.map((event) => ({
+    mmsi: event.mmsi,
+    ship_name: event.shipName,
+    gate: event.gate,
+    direction: event.direction,
+    lat: event.lat,
+    lon: event.lon,
+    crossed_at: event.crossedAt,
+  }));
+  const { error } = await supabase.from("vessel_events").insert(rows);
+  if (error) {
+    const missing = /could not find the table|relation .* does not exist/i.test(
+      error.message,
+    );
+    log.error("vessels.events.failed", {
+      error: error.message,
+      count: rows.length,
+      hint: missing
+        ? "run supabase/migrations/0003_vessel_events.sql in the Supabase SQL editor"
+        : undefined,
+    });
+    return;
+  }
+  log.info("vessels.events.saved", {
+    count: rows.length,
+    gates: events.map((e) => `${e.mmsi}:${e.gate}:${e.direction}`),
+  });
 }

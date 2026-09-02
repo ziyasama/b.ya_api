@@ -1,0 +1,20 @@
+# Local radio. Does not create a Railway service.
+# Invent ICECAST_SOURCE_PASSWORD and ICECAST_ADMIN_PASSWORD in .env.local first.
+#
+#   docker compose -f radio/docker-compose.yml up --build
+#   open http://localhost:8000/bosphorus
+
+services:
+  radio:
+    build:
+      context: ..
+      dockerfile: radio/Dockerfile
+    env_file:
+      - ../.env.local
+    environment:
+      OSC_MIDI_DRY_RUN: "false"
+      OSC_HOST: "127.0.0.1"
+      OSC_PORT: "57121"
+    ports:
+      - "8000:8000"
+    restart: on-failure

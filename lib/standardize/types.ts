@@ -17,6 +17,8 @@ export type BosphorusNormalized = {
   seaSurfaceTemp: number;
   seaLevelHead: number;
   vesselCount: number;
+  northboundCount: number;
+  southboundCount: number;
 
   // Retired: the CMEMS ocean column was dropped when the signal set was
   // simplified to wind, wave, current, temperature and vessels. Kept so
@@ -62,6 +64,8 @@ export type BosphorusState = {
   seaLevelHead: number | null;
 
   vesselCount: number | null;
+  northboundCount: number | null;
+  southboundCount: number | null;
   vesselData: VesselRecord[];
 
   currentDirection: number | null;

@@ -162,6 +162,18 @@ export function DashboardLive({
               previous={previous?.vesselCount ?? null}
               unit=""
             />
+            <MetricCard
+              label="Northbound"
+              value={current?.available.vessels ? current.northboundCount : null}
+              previous={previous?.northboundCount ?? null}
+              unit=""
+            />
+            <MetricCard
+              label="Southbound"
+              value={current?.available.vessels ? current.southboundCount : null}
+              previous={previous?.southboundCount ?? null}
+              unit=""
+            />
           </section>
         </>
       )}

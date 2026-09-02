@@ -13,7 +13,8 @@
     "lint": "eslint",
     "worker": "tsx workers/index.ts",
     "broadcast": "tsx workers/broadcast.ts",
-    "check:sources": "tsx scripts/check-sources.ts"
+    "check:sources": "tsx scripts/check-sources.ts",
+    "test": "node --import tsx --test lib/vessels/events.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

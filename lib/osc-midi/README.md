@@ -8,7 +8,9 @@ Consumes the same `BosphorusState` contract (`lib/standardize/types.ts`) as the 
 | `mapping.ts` | Field → OSC address / MIDI CC (placeholders until audio-patch review) |
 | `osc.ts` | `osc.js` UDP sender (`OSC_HOST` / `OSC_PORT`) |
 | `midi.ts` | `easymidi` virtual port (`MIDI_PORT_NAME`) |
-| `broadcaster.ts` | Emit one state snapshot |
+| `broadcaster.ts` | Emit one state snapshot, plus gate-crossing bangs |
 | `workers/broadcast.ts` | Realtime + poll subscriber |
 
-This process is **local to the installation machine**. Do not import it from Next.js client components.
+This process is **local to the installation machine or the radio container**. Do not import it from Next.js client components.
+
+Gate events: see [SIGNAL_CONTRACT.md](../../docs/SIGNAL_CONTRACT.md).

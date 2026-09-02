@@ -22,6 +22,8 @@ export async function persistState(state: BosphorusState): Promise<void> {
   }
   log.info("persist.ok", {
     vesselCount: state.vesselCount,
+    northbound: state.northboundCount,
+    southbound: state.southboundCount,
     windSpeed: state.windSpeed,
     windSource: state.windSource,
     seaLevelHead: state.seaLevelHead,

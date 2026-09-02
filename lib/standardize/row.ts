@@ -51,6 +51,14 @@ export function rowToState(row: BosphorusStateRow): BosphorusState {
     seaLevelMarmara: row.sea_level_marmara ?? null,
     seaLevelHead: row.sea_level_head ?? null,
     vesselCount: row.vessel_count,
+    northboundCount:
+      row.vessel_count == null
+        ? null
+        : (row.vessel_data ?? []).filter((v) => v.transit === "northbound").length,
+    southboundCount:
+      row.vessel_count == null
+        ? null
+        : (row.vessel_data ?? []).filter((v) => v.transit === "southbound").length,
     vesselData: row.vessel_data ?? [],
 
     currentDirection: row.current_direction,
@@ -79,6 +87,8 @@ export function rowToState(row: BosphorusStateRow): BosphorusState {
       seaSurfaceTemp: row.normalized?.seaSurfaceTemp ?? 0,
       seaLevelHead: row.normalized?.seaLevelHead ?? 0,
       vesselCount: row.normalized?.vesselCount ?? 0,
+      northboundCount: row.normalized?.northboundCount ?? 0,
+      southboundCount: row.normalized?.southboundCount ?? 0,
 
       currentDirection: row.normalized?.currentDirection ?? 0,
       currentSpeed: row.normalized?.currentSpeed ?? 0,

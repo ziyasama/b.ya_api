@@ -13,7 +13,7 @@ import type {
 } from "@/lib/fetchers/types";
 import { toBosphorusState } from "@/lib/standardize";
 import { persistState } from "@/lib/standardize/persist";
-import { loadRoster, saveRoster } from "@/lib/vessels/store";
+import { loadRoster, saveEvents, saveRoster } from "@/lib/vessels/store";
 
 config({ path: ".env.local" });
 config();
@@ -75,6 +75,13 @@ async function rosterCycle(): Promise<void> {
   });
 }
 
+async function eventCycle(): Promise<void> {
+  if (shuttingDown) return;
+  await guarded("events", async () => {
+    await saveEvents(ais.drainEvents());
+  });
+}
+
 /**
  * Fetchers run immediately so the first row has something in it. The persist
  * and roster timers must not, because on boot they would fire before any
@@ -130,6 +137,10 @@ async function main(): Promise<void> {
   interval(() => {
     void rosterCycle();
   }, envNumber("VESSEL_ROSTER_SAVE_MS", 120_000), false);
+
+  interval(() => {
+    void eventCycle();
+  }, envNumber("VESSEL_EVENT_FLUSH_MS", 10_000), false);
 }
 
 function shutdown(signal: string): void {

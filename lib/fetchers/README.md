@@ -73,6 +73,13 @@ because a silent feed is not an empty strait. The roster is also persisted to
 `vessel_positions` and rehydrated on boot so a restart does not rebuild from
 nothing.
 
+Each new fix is compared to the previous one for that MMSI. The sign of the
+latitude change is `transit` (`northbound` toward the Black Sea, `southbound`
+toward the Marmara). A jump smaller than AIS jitter, or a gap longer than 15
+minutes, is not a transit and is not a gate crossing. Crossings are detected
+against the Port of Istanbul lighthouse lines (`lib/vessels/gates.ts`) and
+written to `vessel_events`.
+
 ## Modelled
 
 ### Open-Meteo — `OpenMeteoRaw`

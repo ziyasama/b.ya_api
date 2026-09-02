@@ -42,6 +42,20 @@ export type VesselRecord = {
   size?: number | null;
   shipName?: string | null;
   shipType?: number | null;
+  /** Sign of latitude change. Null until two fixes exist; never invented. */
+  transit?: "northbound" | "southbound" | null;
+};
+
+export type VesselEventRow = {
+  id: string;
+  created_at: string;
+  mmsi: string;
+  ship_name: string | null;
+  gate: "north" | "south";
+  direction: "northbound" | "southbound";
+  lat: number;
+  lon: number;
+  crossed_at: string;
 };
 
 export type BosphorusStateRow = {
@@ -103,6 +117,15 @@ export type Database = {
         Row: VesselPositionRow;
         Insert: Omit<VesselPositionRow, "updated_at"> & { updated_at?: string };
         Update: Partial<VesselPositionRow>;
+        Relationships: [];
+      };
+      vessel_events: {
+        Row: VesselEventRow;
+        Insert: Omit<VesselEventRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<VesselEventRow>;
         Relationships: [];
       };
     };
