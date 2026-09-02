@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { WebSocket as NodeWebSocket } from "ws";
 import { envNumber } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { createBroadcaster } from "@/lib/osc-midi/broadcaster";
@@ -8,6 +9,10 @@ import type { BosphorusStateRow, VesselEventRow } from "@/lib/supabase/database.
 
 config({ path: ".env.local" });
 config();
+
+if (typeof globalThis.WebSocket === "undefined") {
+  globalThis.WebSocket = NodeWebSocket as typeof globalThis.WebSocket;
+}
 
 /**
  * Local installation-machine process. Not for Railway.

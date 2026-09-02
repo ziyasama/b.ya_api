@@ -17,4 +17,9 @@ services:
       OSC_PORT: "57121"
     ports:
       - "8000:8000"
+    shm_size: "256mb"
+    volumes:
+      - ../radio/patch:/app/radio/patch
+      - ../radio/start.sh:/app/radio/start.sh
+      - ../radio/icecast.xml.template:/app/radio/icecast.xml.template
     restart: on-failure

@@ -19,6 +19,11 @@ export function cartoApiKey(): string {
   return env("NEXT_PUBLIC_CARTO_API_KEY");
 }
 
+/** Local Icecast mount. Radio is not on Railway; this is the machine running compose. */
+export function radioStreamUrl(): string {
+  return env("NEXT_PUBLIC_RADIO_URL", "http://localhost:8000/bosphorus");
+}
+
 export const BOSPHORUS = {
   lat: () => envNumber("BOSPHORUS_LAT", 41.04),
   lon: () => envNumber("BOSPHORUS_LON", 29.01),
