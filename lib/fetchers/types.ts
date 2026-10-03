@@ -58,6 +58,11 @@ export type AisVesselRaw = {
   shipName: string | null;
   shipType: number | null;
   lastSeen: string;
+  /**
+   * Knots at that fix. Missing on older rows. A slow in-strait fix is kept
+   * past the usual window; see vesselStillCurrent.
+   */
+  sog?: number | null;
   /** Sign of latitude change vs the previous fix. Null until the vessel has moved. */
   transit: "northbound" | "southbound" | null;
 };

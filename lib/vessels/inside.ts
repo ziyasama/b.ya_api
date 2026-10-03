@@ -24,3 +24,10 @@ export function straitCounts(
   }
   return { total, northbound, southbound };
 }
+
+/** Ships inside the strait first. Order within each group stays as given. */
+export function straitFirst<T extends { lat: number; lon: number }>(vessels: readonly T[]): T[] {
+  return [...vessels].sort(
+    (a, b) => Number(inStrait(b.lat, b.lon)) - Number(inStrait(a.lat, a.lon)),
+  );
+}

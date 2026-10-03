@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { inStrait, straitCounts } from "@/lib/vessels/inside";
+import { inStrait, straitCounts, straitFirst } from "@/lib/vessels/inside";
 
 describe("inStrait", () => {
   it("accepts a ship between the mouths", () => {
@@ -22,5 +22,20 @@ describe("straitCounts", () => {
       { lat: 40.9, lon: 29.0, transit: "northbound" },
     ]);
     assert.deepEqual(counts, { total: 3, northbound: 1, southbound: 1 });
+  });
+});
+
+describe("straitFirst", () => {
+  it("lists ships inside the strait ahead of the approaches, keeping each group's order", () => {
+    const ordered = straitFirst([
+      { mmsi: "a", lat: 40.9, lon: 29.0 },
+      { mmsi: "b", lat: 41.1, lon: 29.05 },
+      { mmsi: "c", lat: 40.95, lon: 28.8 },
+      { mmsi: "d", lat: 41.2, lon: 29.1 },
+    ]);
+    assert.deepEqual(
+      ordered.map((vessel) => vessel.mmsi),
+      ["b", "d", "a", "c"],
+    );
   });
 });

@@ -122,7 +122,8 @@ export function toBosphorusState(input: {
       kind: "measured",
       observedAt: input.ais.fetchedAt,
       ageSeconds: ageSeconds(input.ais.fetchedAt, now),
-      detail: "ships whose latest AIS position is inside the strait, between the two mouths",
+      detail:
+        "ships inside the strait; a docking-speed fix there is kept for 48 hours",
     };
   }
 

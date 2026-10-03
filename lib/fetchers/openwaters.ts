@@ -5,6 +5,7 @@ import { recall, remember } from "@/lib/fetchers/last-known";
 import type { AisSnapshotRaw, AisVesselRaw, FetcherResult } from "@/lib/fetchers/types";
 import { detectCrossings, MAX_GAP_MS, transitDirection } from "@/lib/vessels/events";
 import type { GateCrossing } from "@/lib/vessels/events";
+import { inStrait } from "@/lib/vessels/inside";
 
 const STORE_KEY = "ais";
 
@@ -27,6 +28,7 @@ export type VesselUpdate = {
   shipName: string | null;
   shipType: number | null;
   size: number | null;
+  sog: number | null;
 };
 
 type Dimension = { A?: number; B?: number };
@@ -41,6 +43,7 @@ type OpenWatersFeature = {
     type?: number;
     seen?: string;
     kind?: string;
+    sog?: number;
   };
 };
 
@@ -52,9 +55,11 @@ type OpenWatersFrame = {
   lat?: number;
   lon?: number;
   time?: string;
+  sog?: number;
   message?: {
     Name?: string;
     Type?: number;
+    Sog?: number;
     Dimension?: Dimension;
     ReportA?: { Name?: string };
     ReportB?: { ShipType?: number; Dimension?: Dimension };
@@ -87,11 +92,27 @@ export function approachBox(): {
   };
 }
 
+/**
+ * Under this speed a ship is maneuvering. The strait limit is 10 knots, so a
+ * couple of knots is a berth, not a transit.
+ */
+export const BERTH_SOG_KN = 3;
+
+/**
+ * How long that slow in-strait fix may stand in. Open Waters drops a vessel
+ * last reported under way after 30 minutes, and a ship alongside often never
+ * sends "moored" on this feed. 48 hours covers a Bosphorus cruise call after
+ * the last underway report.
+ */
+export const BERTH_WINDOW_MS = 48 * 60 * 60 * 1000;
+
 function snapshotUrl(): string {
   const base = env("AIS_SNAPSHOT_URL", "https://ais.openwaters.io/v1/vessels");
   const box = approachBox();
   const url = new URL(base);
   url.searchParams.set("bbox", `${box.latMin},${box.lonMin},${box.latMax},${box.lonMax}`);
+  const hours = BERTH_WINDOW_MS / 3_600_000;
+  url.searchParams.set("max_age_moving", `${hours}h`);
   return url.toString();
 }
 
@@ -101,10 +122,9 @@ function streamUrl(): string {
 
 function snapshotFromMap(vessels: Map<string, AisVesselRaw>): AisSnapshotRaw {
   const now = Date.now();
-  const maxAge = staleMs();
   const live: AisVesselRaw[] = [];
   for (const vessel of vessels.values()) {
-    if (now - Date.parse(vessel.lastSeen) <= maxAge) live.push(vessel);
+    if (vesselStillCurrent(vessel, now)) live.push(vessel);
   }
   return { vesselCount: live.length, vessels: live };
 }
@@ -125,9 +145,28 @@ function validPosition(lat: number, lon: number): boolean {
   return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 }
 
-function isFresh(lastSeen: string, now: number): boolean {
-  const parsed = Date.parse(lastSeen);
-  return Number.isFinite(parsed) && now - parsed <= staleMs();
+function readSog(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * A fix from the last 4 hours always counts. Past that, only a ship still
+ * inside the strait and last heard between 1 and 3 knots: fast enough that
+ * Open Waters treats it as "under way" and hides it after 30 minutes, slow
+ * enough that it has not left the berth. A stopped ship (under 1 knot) stays
+ * on the 4-hour rule.
+ */
+export function vesselStillCurrent(
+  vessel: { lat: number; lon: number; lastSeen: string; sog?: number | null },
+  now = Date.now(),
+): boolean {
+  const age = now - Date.parse(vessel.lastSeen);
+  if (!Number.isFinite(age) || age < 0) return false;
+  if (age <= staleMs()) return true;
+  if (age > BERTH_WINDOW_MS) return false;
+  const sog = vessel.sog;
+  if (sog == null || sog < 1 || sog >= BERTH_SOG_KN) return false;
+  return inStrait(vessel.lat, vessel.lon);
 }
 
 /**
@@ -156,16 +195,22 @@ export function updateFromFeature(feature: OpenWatersFeature, now = Date.now()):
   const lat = coords?.[1];
   const lastSeen = feature.properties?.seen;
   if (!mmsi || lat == null || lon == null || !lastSeen) return null;
-  if (!validPosition(lat, lon) || !isFresh(lastSeen, now)) return null;
+  if (!validPosition(lat, lon)) return null;
+  const parsed = Date.parse(lastSeen);
+  if (!Number.isFinite(parsed)) return null;
+  const sog = readSog(feature.properties?.sog);
+  const seen = new Date(parsed).toISOString();
+  if (!vesselStillCurrent({ lat, lon, lastSeen: seen, sog }, now)) return null;
   const length = feature.properties?.length;
   return {
     mmsi,
     lat,
     lon,
-    lastSeen: new Date(Date.parse(lastSeen)).toISOString(),
+    lastSeen: seen,
     shipName: cleanName(feature.properties?.name),
     shipType: feature.properties?.type ?? null,
     size: length != null && length > 0 ? length : null,
+    sog,
   };
 }
 
@@ -178,17 +223,21 @@ export function updateFromEvent(frame: OpenWatersFrame, now = Date.now()): Vesse
   const lon = frame.lon;
   const lastSeen = frame.time;
   if (!mmsi || lat == null || lon == null || !lastSeen) return null;
-  if (!validPosition(lat, lon) || !isFresh(lastSeen, now)) return null;
+  if (!validPosition(lat, lon)) return null;
   const message = frame.message;
   const parsed = Date.parse(lastSeen);
+  const seen = Number.isFinite(parsed) ? new Date(parsed).toISOString() : lastSeen;
+  const sog = readSog(frame.sog ?? message?.Sog);
+  if (!vesselStillCurrent({ lat, lon, lastSeen: seen, sog }, now)) return null;
   return {
     mmsi,
     lat,
     lon,
-    lastSeen: Number.isFinite(parsed) ? new Date(parsed).toISOString() : lastSeen,
+    lastSeen: seen,
     shipName: cleanName(message?.Name ?? message?.ReportA?.Name),
     shipType: message?.Type ?? message?.ReportB?.ShipType ?? null,
     size: lengthOf(message?.Dimension ?? message?.ReportB?.Dimension),
+    sog,
   };
 }
 
@@ -212,6 +261,7 @@ export function mergeVessel(
         shipName: existing.shipName || update.shipName,
         shipType: existing.shipType ?? update.shipType,
         size: existing.size ?? update.size,
+        sog: existing.sog ?? update.sog,
       },
     };
   }
@@ -238,6 +288,7 @@ export function mergeVessel(
       shipName: update.shipName || existing?.shipName || null,
       shipType: update.shipType ?? existing?.shipType ?? null,
       lastSeen: update.lastSeen,
+      sog: update.sog,
       transit,
     },
   };
@@ -397,9 +448,8 @@ export class OpenWatersFetcher {
 
   private prune(): void {
     const now = Date.now();
-    const maxAge = staleMs();
     for (const [mmsi, vessel] of this.vessels) {
-      if (now - Date.parse(vessel.lastSeen) > maxAge) this.vessels.delete(mmsi);
+      if (!vesselStillCurrent(vessel, now)) this.vessels.delete(mmsi);
     }
   }
 

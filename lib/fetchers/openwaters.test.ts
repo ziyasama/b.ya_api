@@ -5,6 +5,7 @@ import {
   mergeVessel,
   updateFromEvent,
   updateFromFeature,
+  vesselStillCurrent,
 } from "@/lib/fetchers/openwaters";
 import type { AisVesselRaw } from "@/lib/fetchers/types";
 
@@ -34,7 +35,59 @@ describe("updateFromFeature", () => {
       shipName: "MECHTA S",
       shipType: 70,
       size: 119,
+      sog: null,
     });
+  });
+
+  it("keeps a docking-speed fix inside the strait past the four-hour window", () => {
+    const update = updateFromFeature(
+      {
+        geometry: { coordinates: [28.986057, 41.026275] },
+        properties: {
+          mmsi: 256191000,
+          name: "CELEBRITY ASCENT",
+          length: 327,
+          type: 60,
+          sog: 2.3,
+          seen: "2026-10-03T03:00:00.000Z",
+          kind: "vessel",
+        },
+      },
+      NOW,
+    );
+    assert.equal(update?.mmsi, "256191000");
+    assert.equal(update?.sog, 2.3);
+  });
+
+  it("drops a transit-speed fix and a slow fix outside the strait once they go stale", () => {
+    const stale = "2026-10-03T03:00:00.000Z";
+    assert.equal(
+      updateFromFeature(
+        {
+          geometry: { coordinates: [28.986057, 41.026275] },
+          properties: { mmsi: 1, kind: "vessel", sog: 8, seen: stale },
+        },
+        NOW,
+      ),
+      null,
+    );
+    assert.equal(
+      updateFromFeature(
+        {
+          geometry: { coordinates: [28.8, 40.9] },
+          properties: { mmsi: 2, kind: "vessel", sog: 2.3, seen: stale },
+        },
+        NOW,
+      ),
+      null,
+    );
+    assert.equal(
+      vesselStillCurrent(
+        { lat: 41.026275, lon: 28.986057, lastSeen: stale, sog: 0 },
+        NOW,
+      ),
+      false,
+    );
   });
 
   it("drops aids to navigation and positions older than the stale window", () => {
@@ -119,6 +172,7 @@ describe("mergeVessel", () => {
       shipName: null,
       shipType: null,
       size: null,
+      sog: null,
     });
     assert.equal(track, true);
     assert.equal(vessel.transit, "northbound");
@@ -135,6 +189,7 @@ describe("mergeVessel", () => {
       shipName: "OLD",
       shipType: 70,
       size: 100,
+      sog: null,
     });
     assert.equal(track, false);
     assert.equal(vessel.transit, null);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { VesselRecord } from "@/lib/supabase/database.types";
+import { inStrait, straitFirst } from "@/lib/vessels/inside";
 
 const PAGE_SIZE = 10;
 
@@ -11,7 +12,7 @@ const ROW =
 function wayMark(transit: VesselRecord["transit"]): string {
   if (transit === "northbound") return "N";
   if (transit === "southbound") return "S";
-  return "—";
+  return "STILL";
 }
 
 const COLUMNS: { label: string; hint: string; tip: "left" | "right" }[] = [
@@ -20,10 +21,14 @@ const COLUMNS: { label: string; hint: string; tip: "left" | "right" }[] = [
     hint: "Maritime Mobile Service Identity. The ship's radio identity number.",
     tip: "left",
   },
-  { label: "Name", hint: "The name it broadcasts.", tip: "left" },
+  {
+    label: "Name",
+    hint: "The name it broadcasts. A green dot means the ship is inside the strait.",
+    tip: "left",
+  },
   {
     label: "Way",
-    hint: "The last move. N is north, toward the Black Sea. S is south, toward the Marmara. — is sitting still, or only one position so far.",
+    hint: "The last move. N is north, toward the Black Sea. S is south, toward the Marmara. STILL means sitting in place, or only one position so far.",
     tip: "right",
   },
   {
@@ -95,6 +100,23 @@ function ChevronRight() {
   );
 }
 
+export function LiveDot({ label }: { label: string }) {
+  return (
+    <span
+      className="relative inline-flex size-1.5 shrink-0"
+      role="img"
+      aria-label={label}
+      title={label}
+    >
+      <span aria-hidden className="absolute inset-0 animate-spark-live rounded-full bg-green/70" />
+      <span
+        aria-hidden
+        className="size-1.5 rounded-full bg-green shadow-[0_0_6px_var(--color-green)]"
+      />
+    </span>
+  );
+}
+
 function PageButton({
   label,
   disabled,
@@ -123,7 +145,8 @@ export function VesselList({ vessels }: { vessels: VesselRecord[] }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(vessels.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const visible = vessels.slice(
+  const ordered = straitFirst(vessels);
+  const visible = ordered.slice(
     safePage * PAGE_SIZE,
     safePage * PAGE_SIZE + PAGE_SIZE,
   );
@@ -154,10 +177,19 @@ export function VesselList({ vessels }: { vessels: VesselRecord[] }) {
             className={`${ROW} px-4 py-2 font-mono text-xs`}
           >
             <span className="text-cyan">{vessel.mmsi}</span>
-            <span className="truncate text-muted">
-              {vessel.shipName ?? "unknown"}
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <span className="min-w-0 truncate text-muted">
+                {vessel.shipName ?? "unknown"}
+              </span>
+              {inStrait(vessel.lat, vessel.lon) ? (
+                <span className="self-center">
+                  <LiveDot label="In the strait" />
+                </span>
+              ) : null}
             </span>
-            <span>{wayMark(vessel.transit)}</span>
+            <span className={vessel.transit ? undefined : "text-muted/70"}>
+              {wayMark(vessel.transit)}
+            </span>
             <span className="text-right">
               {vessel.lat.toFixed(3)}, {vessel.lon.toFixed(3)}
             </span>
