@@ -63,6 +63,7 @@ export type BosphorusState = {
   /** Black Sea minus Marmara, in metres. Drives the strait's surface flow. */
   seaLevelHead: number | null;
 
+  /** Ships whose latest position is inside the strait. */
   vesselCount: number | null;
   northboundCount: number | null;
   southboundCount: number | null;

@@ -1,5 +1,6 @@
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
 import type { BosphorusState } from "@/lib/standardize/types";
+import { straitCounts } from "@/lib/vessels/inside";
 
 export function stateToRow(
   state: BosphorusState,
@@ -35,6 +36,7 @@ export function stateToRow(
 
 export function rowToState(row: BosphorusStateRow): BosphorusState {
   const available = row.available ?? {};
+  const inside = row.vessel_count == null ? null : straitCounts(row.vessel_data ?? []);
   return {
     createdAt: row.created_at,
     windSpeed: row.wind_speed,
@@ -50,15 +52,9 @@ export function rowToState(row: BosphorusStateRow): BosphorusState {
     seaLevelBlackSea: row.sea_level_black_sea ?? null,
     seaLevelMarmara: row.sea_level_marmara ?? null,
     seaLevelHead: row.sea_level_head ?? null,
-    vesselCount: row.vessel_count,
-    northboundCount:
-      row.vessel_count == null
-        ? null
-        : (row.vessel_data ?? []).filter((v) => v.transit === "northbound").length,
-    southboundCount:
-      row.vessel_count == null
-        ? null
-        : (row.vessel_data ?? []).filter((v) => v.transit === "southbound").length,
+    vesselCount: inside?.total ?? null,
+    northboundCount: inside?.northbound ?? null,
+    southboundCount: inside?.southbound ?? null,
     vesselData: row.vessel_data ?? [],
 
     currentDirection: row.current_direction,

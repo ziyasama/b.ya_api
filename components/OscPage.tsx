@@ -86,10 +86,6 @@ async function postOsc(messages: OscOutbound[]): Promise<void> {
   }
 }
 
-function midiNeedsRetry(status: MidiStatus): boolean {
-  return status.state === "denied" || status.state === "no-output";
-}
-
 function MidiStatusLine({ status }: { status: MidiStatus }) {
   if (status.state === "ready") {
     return (
@@ -114,11 +110,22 @@ function MidiStatusLine({ status }: { status: MidiStatus }) {
         className={`text-xs ${blocked ? "text-red" : "text-muted"}`}
         title={blocked ? status.message : undefined}
       >
-        {blocked
-          ? "Chrome blocked MIDI for this site."
-          : status.names.length > 0
-            ? `IAC Driver is offline. Chrome can already send to ${status.names.join(", ")}.`
-            : "IAC Driver is offline. Chrome has no MIDI outputs yet."}
+        {blocked ? (
+          <>
+            Chrome blocked MIDI for this site.{" "}
+            <button
+              type="button"
+              onClick={() => void connectMidi()}
+              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-inherit underline"
+            >
+              Retry
+            </button>
+          </>
+        ) : status.names.length > 0 ? (
+          `IAC Driver is offline. Chrome can already send to ${status.names.join(", ")}.`
+        ) : (
+          "IAC Driver is offline. Chrome has no MIDI outputs yet."
+        )}
       </p>
       {blocked ? null : (
         <p className="max-w-xl text-xs text-muted">
@@ -414,7 +421,7 @@ const CHANNEL_ROW_LAYOUT: Record<string, string[][]> = {
   Wind: [["windSpeed", "windDirection"]],
   Waves: [["waveHeight", "wavePeriod", "swellHeight"]],
   "Sea level & temp": [["seaSurfaceTemp", "seaLevelHead", "seaLevelBlackSea"]],
-  "Maritime traffic": [["vesselCount", "northboundCount", "southboundCount"]],
+  "In the strait": [["vesselCount", "northboundCount", "southboundCount"]],
 };
 
 function rowsForGroup(group: string, channels: OscChannel[]): OscChannel[][] {
@@ -853,15 +860,6 @@ export function OscPage({
               {outputMode === "midi" ? <MidiStatusLine status={midiStatus} /> : null}
             </div>
           </div>
-          {outputMode === "midi" && midiNeedsRetry(midiStatus) ? (
-            <PillButton
-              compact
-              onClick={() => void connectMidi()}
-              className="self-center border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
-            >
-              Retry MIDI
-            </PillButton>
-          ) : null}
         </div>
         {sendError ? (
           <p className="col-span-2 font-mono text-xs text-gold" title={sendError}>
@@ -871,7 +869,7 @@ export function OscPage({
         {outputMode === "midi" ? (
           <>
             <div className="col-span-2 flex items-end justify-between gap-4 border-t border-border pt-3">
-              <p className="max-w-xl text-xs text-muted">
+              <p className="min-w-0 flex-1 text-xs text-muted">
                 Open the Live set, then Sync all. This pulls the latest compiled wind, wave, sea,
                 and traffic onto the mapped CCs and turns those MIDI rows on, so Live stays with
                 the strait while you play.

@@ -1,4 +1,5 @@
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
+import { straitCounts } from "@/lib/vessels/inside";
 
 export const HISTORY_WINDOW_MS = 14_400_000;
 /** PostgREST fetch cap — ~2 samples/min over the window, with headroom. */
@@ -73,7 +74,7 @@ export function emptyHistory(): MetricHistory {
 }
 
 function valuesFromRow(row: HistoryRow): Record<MetricSeriesKey, number | null> {
-  const vessels = row.vessel_data ?? [];
+  const inside = row.vessel_count == null ? null : straitCounts(row.vessel_data ?? []);
   return {
     windSpeed: row.wind_speed,
     windDirection: row.wind_direction,
@@ -83,15 +84,9 @@ function valuesFromRow(row: HistoryRow): Record<MetricSeriesKey, number | null> 
     seaSurfaceTemp: row.sea_surface_temp,
     seaLevelHead: row.sea_level_head,
     seaLevelBlackSea: row.sea_level_black_sea,
-    vesselCount: row.vessel_count,
-    northboundCount:
-      row.vessel_count == null
-        ? null
-        : vessels.filter((v) => v.transit === "northbound").length,
-    southboundCount:
-      row.vessel_count == null
-        ? null
-        : vessels.filter((v) => v.transit === "southbound").length,
+    vesselCount: inside?.total ?? null,
+    northboundCount: inside?.northbound ?? null,
+    southboundCount: inside?.southbound ?? null,
   };
 }
 

@@ -4,6 +4,11 @@ import { log } from "@/lib/logger";
 import type { AisVesselRaw } from "@/lib/fetchers/types";
 import type { VesselPositionRow } from "@/lib/supabase/database.types";
 import type { GateCrossing } from "@/lib/vessels/events";
+import {
+  CROSSING_SELECT,
+  crossingsFromRows,
+  type Crossing,
+} from "@/lib/vessels/passages";
 
 /**
  * Durable vessel roster. A fresh worker used to write vessel_data = [] for
@@ -69,6 +74,22 @@ export async function saveRoster(vessels: AisVesselRaw[]): Promise<void> {
     return;
   }
   log.debug("vessels.saved", { count: rows.length });
+}
+
+export async function loadCrossings(sinceIso: string): Promise<Crossing[] | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from("vessel_events")
+    .select(CROSSING_SELECT)
+    .gte("crossed_at", sinceIso)
+    .order("crossed_at", { ascending: true })
+    .limit(2000);
+
+  if (error) {
+    log.warn("vessels.crossings.failed", { error: error.message });
+    return null;
+  }
+  return crossingsFromRows(data ?? []);
 }
 
 export async function saveEvents(events: GateCrossing[]): Promise<void> {

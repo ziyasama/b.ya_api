@@ -13,6 +13,7 @@ import type {
 } from "@/lib/supabase/database.types";
 import type { BosphorusState } from "@/lib/standardize/types";
 import { normalize } from "@/lib/standardize/ranges";
+import { straitCounts } from "@/lib/vessels/inside";
 
 function statusFrom<T>(result: FetcherResult<T>): SourceStatusEntry {
   return {
@@ -70,15 +71,11 @@ export function toBosphorusState(input: {
     shipType: v.shipType,
     transit: v.transit,
   }));
-  const vesselCount = ais?.vesselCount ?? null;
-  const northboundCount =
-    vesselCount == null
-      ? null
-      : vesselData.filter((v) => v.transit === "northbound").length;
-  const southboundCount =
-    vesselCount == null
-      ? null
-      : vesselData.filter((v) => v.transit === "southbound").length;
+  const heard = ais?.vesselCount ?? null;
+  const inside = straitCounts(vesselData);
+  const vesselCount = heard == null ? null : inside.total;
+  const northboundCount = heard == null ? null : inside.northbound;
+  const southboundCount = heard == null ? null : inside.southbound;
 
   const provenance: Provenance = {};
   if (windSpeed != null) {
@@ -119,13 +116,13 @@ export function toBosphorusState(input: {
       detail: "radar tide gauges, anomalies against each station's own 24 h mean",
     };
   }
-  if (vesselCount != null) {
+  if (heard != null) {
     provenance.vessels = {
       source: "openwaters",
       kind: "measured",
       observedAt: input.ais.fetchedAt,
       ageSeconds: ageSeconds(input.ais.fetchedAt, now),
-      detail: "AIS via Open Waters (AISHub and coastal receivers) in the approach box",
+      detail: "ships whose latest AIS position is inside the strait, between the two mouths",
     };
   }
 
@@ -169,7 +166,7 @@ export function toBosphorusState(input: {
       wave: waveHeight != null,
       seaSurfaceTemp: seaSurfaceTemp != null,
       seaLevel: seaLevelHead != null,
-      vessels: vesselCount != null,
+      vessels: heard != null,
     },
     normalized: {
       windSpeed: normalize(windSpeed, "windSpeed"),

@@ -108,7 +108,10 @@ export function MetricSparkline({
   const values = plotted.map((point) => point.v);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const { yMin, yMax, ticks } = yScale(min, max);
+  const flatCount = unit === "" && min === max;
+  const { yMin, yMax, ticks } = flatCount
+    ? { yMin: min, yMax: min, ticks: [min] }
+    : yScale(min, max);
   const yRange = yMax - yMin || 1;
 
   const plotW = VIEW_W - PAD_LEFT - PAD_RIGHT;

@@ -30,12 +30,11 @@ export const RANGES = {
   // 25 C measured on 2 Sep 2026, with late-August peaks nearer 28.
   seaSurfaceTemp: { min: 6, max: 28 },
   seaLevelHead: { min: -0.3, max: 0.3 },
-  // Wide-box AIS on 3 Oct 2026, once the feed settled: 142–153 ships.
-  // Fifty ships of room past that logged low and high, rounded outward to
-  // tens, so a quieter hour and a busier one still move the controller.
-  vesselCount: softenCountRange(142, 153),
-  northboundCount: { min: 0, max: 80 },
-  southboundCount: { min: 0, max: 80 },
+  // Completed through-passages in four hours. A busy spell is a few dozen,
+  // so the controller moves on one ship and still has room above a rush.
+  vesselCount: { min: 0, max: 40 },
+  northboundCount: { min: 0, max: 20 },
+  southboundCount: { min: 0, max: 20 },
 
   // Retired with the CMEMS ocean column. Always 0 for new rows.
   currentDirection: { min: 0, max: 360 },

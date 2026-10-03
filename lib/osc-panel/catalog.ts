@@ -15,7 +15,7 @@ export type MidiRange = { min: number; max: number };
 
 export type OscChannel = {
   id: string;
-  group: "Wind" | "Waves" | "Sea level & temp" | "Maritime traffic";
+  group: "Wind" | "Waves" | "Sea level & temp" | "In the strait";
   label: string;
   address: string;
   defaultPort: number;
@@ -47,9 +47,9 @@ export const OSC_CHANNELS: OscChannel[] = [
   { id: "seaSurfaceTemp", group: "Sea level & temp", label: "Water temp", address: "/bosphorus/sea/temp", defaultPort: 9106, unit: "°C", kind: "level", cc: 6, range: { min: 6, max: 28 } },
   { id: "seaLevelHead", group: "Sea level & temp", label: "Sea level head", address: "/bosphorus/sea/head", defaultPort: 9107, unit: "m", kind: "level", cc: 7, range: { min: -0.3, max: 0.3 } },
   { id: "seaLevelBlackSea", group: "Sea level & temp", label: "Black Sea", address: "/bosphorus/sea/black", defaultPort: 9108, unit: "m", kind: "level", cc: 8, range: { min: -0.5, max: 0.5 } },
-  { id: "vesselCount", group: "Maritime traffic", label: "Vessels", address: "/bosphorus/vessels/count", defaultPort: 9109, unit: "", kind: "level", cc: 9, range: RANGES.vesselCount },
-  { id: "northboundCount", group: "Maritime traffic", label: "Northbound", address: "/bosphorus/vessels/northbound", defaultPort: 9110, unit: "", kind: "level", cc: 10, range: { min: 0, max: 80 } },
-  { id: "southboundCount", group: "Maritime traffic", label: "Southbound", address: "/bosphorus/vessels/southbound", defaultPort: 9111, unit: "", kind: "level", cc: 11, range: { min: 0, max: 80 } },
+  { id: "vesselCount", group: "In the strait", label: "Inside", address: "/bosphorus/vessels/count", defaultPort: 9109, unit: "", kind: "level", cc: 9, range: RANGES.vesselCount },
+  { id: "northboundCount", group: "In the strait", label: "Northbound", address: "/bosphorus/vessels/northbound", defaultPort: 9110, unit: "", kind: "level", cc: 10, range: RANGES.northboundCount },
+  { id: "southboundCount", group: "In the strait", label: "Southbound", address: "/bosphorus/vessels/southbound", defaultPort: 9111, unit: "", kind: "level", cc: 11, range: RANGES.southboundCount },
 ];
 
 const CHANNELS_BY_ID = new Map(OSC_CHANNELS.map((channel) => [channel.id, channel]));

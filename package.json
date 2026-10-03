@@ -15,7 +15,7 @@
     "broadcast": "tsx workers/broadcast.ts",
     "check:sources": "tsx scripts/check-sources.ts",
     "map:build": "tsx scripts/build-bosphorus-map.ts",
-    "test": "node --import tsx --test lib/vessels/events.test.ts lib/osc-panel/midi.test.ts lib/fetchers/openwaters.test.ts lib/standardize/ranges.test.ts"
+    "test": "node --import tsx --test lib/vessels/events.test.ts lib/vessels/passages.test.ts lib/vessels/inside.test.ts lib/osc-panel/midi.test.ts lib/fetchers/openwaters.test.ts lib/standardize/ranges.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

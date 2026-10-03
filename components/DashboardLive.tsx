@@ -9,7 +9,6 @@ import {
 } from "@/components/SourceStatusPills";
 import type { SourceStatus, SourceStatusEntry } from "@/lib/supabase/database.types";
 import { VesselList } from "@/components/VesselList";
-import { vesselCountWindowLabel } from "@/lib/env";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { BosphorusGeo } from "@/lib/map/geo";
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
@@ -24,6 +23,7 @@ import {
   type HistoryRow,
   type MetricHistory,
 } from "@/lib/history/metrics";
+import { VESSEL_COUNT_WINDOW_MS, vesselCountWindowLabel } from "@/lib/env";
 import { rowToState } from "@/lib/standardize/row";
 import type { BosphorusState } from "@/lib/standardize/types";
 
@@ -127,9 +127,10 @@ function seaLevelGroupNote(): string {
   return "IOC (Intergovernmental Oceanographic Commission sea level monitoring network) radar tide gauges on either side of the strait. Sea level head is the Black Sea minus Marmara anomaly (how far each gauge sits above or below its own recent average, not the raw chart waterline): Şile on the Black Sea coast minus Yalova on the Marmara side (İğneada and Marmara Ereğlisi are backups if a station goes quiet). Each gauge is compared to its own 24-hour average so local datums (local zero points) do not skew the comparison. Positive head means the Black Sea sits higher and surface water tends to flow south — a height difference in metres, not a current speed. Black Sea alone is Şile's anomaly — how much higher or lower than its recent average.";
 }
 
+const BOX_WINDOW = vesselCountWindowLabel(VESSEL_COUNT_WINDOW_MS).toLowerCase();
+
 function trafficGroupNote(): string {
-  const window = vesselCountWindowLabel();
-  return `${window} of AIS (${AIS_GLOSS}), relayed by Open Waters from coastal receivers and the AISHub network. Vessels is every ship heard in that window, from the Marmara approaches, through the strait, to the Black Sea mouth. Northbound ships are moving toward the Black Sea. Southbound ships are moving toward the Marmara. Ships that are sitting still stay in the total and in neither direction.`;
+  return `Ships whose latest AIS (${AIS_GLOSS}) position is inside the strait, between the Marmara mouth and the Black Sea mouth, and was heard in the last 4 hours. Inside is every one of those ships. Northbound and southbound are the ones moving that way. A ship sitting still stays in Inside and in neither direction. The list below is the wider box, including the approaches.`;
 }
 
 export function DashboardLive({
@@ -197,6 +198,8 @@ export function DashboardLive({
       void supabase.removeChannel(channel);
     };
   }, []);
+
+  const boxShips = current?.vesselData.length ?? 0;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
@@ -322,7 +325,7 @@ export function DashboardLive({
         </MetricGroup>
 
         <MetricGroup
-          title="Maritime traffic"
+          title="In the strait"
           note={
             <MetricNote
               source="Open Waters · measured"
@@ -334,7 +337,7 @@ export function DashboardLive({
           }
         >
           <MetricCard
-            label="Vessels"
+            label="Inside"
             value={current?.available.vessels ? current.vesselCount : null}
             previous={previous?.vesselCount ?? null}
             unit=""
@@ -359,7 +362,7 @@ export function DashboardLive({
 
       <section>
         <h2 className="mb-3 text-xs uppercase tracking-widest text-muted">
-          Traffic
+          {`Ships in the box (${boxShips}, ${BOX_WINDOW})`}
         </h2>
         <VesselList vessels={current?.vesselData ?? []} />
       </section>

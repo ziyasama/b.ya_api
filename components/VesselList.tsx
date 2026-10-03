@@ -5,6 +5,66 @@ import type { VesselRecord } from "@/lib/supabase/database.types";
 
 const PAGE_SIZE = 10;
 
+const ROW =
+  "grid grid-cols-[5.5rem_minmax(0,1fr)_2.75rem_7.75rem] items-baseline gap-x-3";
+
+function wayMark(transit: VesselRecord["transit"]): string {
+  if (transit === "northbound") return "N";
+  if (transit === "southbound") return "S";
+  return "—";
+}
+
+const COLUMNS: { label: string; hint: string; tip: "left" | "right" }[] = [
+  {
+    label: "MMSI",
+    hint: "Maritime Mobile Service Identity. The ship's radio identity number.",
+    tip: "left",
+  },
+  { label: "Name", hint: "The name it broadcasts.", tip: "left" },
+  {
+    label: "Way",
+    hint: "The last move. N is north, toward the Black Sea. S is south, toward the Marmara. — is sitting still, or only one position so far.",
+    tip: "right",
+  },
+  {
+    label: "Position",
+    hint: "The latest latitude and longitude.",
+    tip: "right",
+  },
+];
+
+function ColumnTitle({
+  label,
+  hint,
+  tip,
+}: {
+  label: string;
+  hint: string;
+  tip: "left" | "right";
+}) {
+  const tipId = `vessel-col-${label.toLowerCase()}`;
+  return (
+    <span className={`group relative ${label === "Position" ? "justify-self-end" : ""}`}>
+      <span
+        tabIndex={0}
+        aria-describedby={tipId}
+        className="cursor-help border-b border-dotted border-current/40 outline-none hover:text-cyan focus-visible:text-cyan"
+      >
+        {label}
+      </span>
+      <span
+        id={tipId}
+        role="tooltip"
+        className={`pointer-events-none absolute top-full z-10 mt-1.5 hidden w-64 rounded-md border border-border bg-background px-2.5 py-1.5 text-left font-sans text-xs font-medium normal-case leading-relaxed tracking-normal text-foreground group-hover:block group-focus-within:block ${
+          tip === "right" ? "right-0" : "left-0"
+        }`}
+      >
+        {hint}
+      </span>
+    </span>
+  );
+}
+
 function ChevronLeft() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -78,22 +138,27 @@ export function VesselList({ vessels }: { vessels: VesselRecord[] }) {
 
   return (
     <div className="rounded-xl border border-border bg-panel">
+      <header className="relative z-10 border-b border-border px-4 py-2.5">
+        <div
+          className={`${ROW} font-mono text-xs uppercase tracking-wider text-muted`}
+        >
+          {COLUMNS.map((column) => (
+            <ColumnTitle key={column.label} {...column} />
+          ))}
+        </div>
+      </header>
       <ul className="divide-y divide-border">
         {visible.map((vessel) => (
           <li
             key={vessel.mmsi}
-            className="flex items-baseline justify-between gap-3 px-4 py-2 font-mono text-xs"
+            className={`${ROW} px-4 py-2 font-mono text-xs`}
           >
             <span className="text-cyan">{vessel.mmsi}</span>
             <span className="truncate text-muted">
               {vessel.shipName ?? "unknown"}
             </span>
-            <span>
-              {vessel.transit === "northbound"
-                ? "N"
-                : vessel.transit === "southbound"
-                  ? "S"
-                  : "—"}{" "}
+            <span>{wayMark(vessel.transit)}</span>
+            <span className="text-right">
               {vessel.lat.toFixed(3)}, {vessel.lon.toFixed(3)}
             </span>
           </li>

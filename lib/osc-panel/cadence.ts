@@ -1,4 +1,4 @@
-import { envNumber, vesselCountWindowLabel, vesselCountWindowMs } from "@/lib/env";
+import { envNumber } from "@/lib/env";
 import { metarPollMs } from "@/lib/fetchers/metar";
 import { openMeteoPollMs } from "@/lib/fetchers/open-meteo";
 import { seaLevelPollMs } from "@/lib/fetchers/sea-level";
@@ -22,7 +22,7 @@ export function oscCadence(): Record<string, string> {
   const marine = every(openMeteoPollMs());
   const sea = every(seaLevelPollMs());
   const logged = every(envNumber("WORKER_PERSIST_MS", 120_000));
-  const vessels = `${vesselCountWindowLabel(vesselCountWindowMs())}, logged ${logged}`;
+  const vessels = `Ships inside the strait, logged ${logged}`;
 
   return {
     windSpeed: `Collected ${metar}`,
