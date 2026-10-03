@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { OscLink } from "@/components/OscPage";
 
 const PLAY_SRC = "/api/radio";
 
@@ -66,6 +68,15 @@ export function RadioListen({ url }: { url: string }) {
   return (
     <div ref={rootRef} className="relative shrink-0">
       <div className="flex items-center gap-1">
+        <OscLink />
+        <Link
+          href="/radio"
+          aria-label="Review SuperCollider patch code"
+          title="SuperCollider patch"
+          className="rounded-full border border-border px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted hover:border-cyan hover:text-cyan"
+        >
+          SC
+        </Link>
         <button
           type="button"
           onClick={() => void toggle()}
@@ -77,11 +88,7 @@ export function RadioListen({ url }: { url: string }) {
               : "Local Icecast"
           }
           className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider hover:opacity-80 ${
-            playing
-              ? "border-gold text-gold"
-              : error
-                ? "border-muted text-muted"
-                : "border-cyan text-cyan"
+            playing ? "border-green text-green" : "border-red text-red"
           }`}
         >
           {playing ? "● Radio" : error ? "Radio · off" : "▶ Radio"}
