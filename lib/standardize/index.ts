@@ -121,11 +121,11 @@ export function toBosphorusState(input: {
   }
   if (vesselCount != null) {
     provenance.vessels = {
-      source: "aisstream",
+      source: "openwaters",
       kind: "measured",
       observedAt: input.ais.fetchedAt,
       ageSeconds: ageSeconds(input.ais.fetchedAt, now),
-      detail: "vessel self-reported AIS transmissions",
+      detail: "AIS via Open Waters (AISHub and coastal receivers) in the approach box",
     };
   }
 

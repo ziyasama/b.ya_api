@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { OscLink } from "@/components/OscPage";
+import { PillButton, PillLink } from "@/components/PillControl";
 
 const PLAY_SRC = "/api/radio";
 
@@ -66,19 +66,18 @@ export function RadioListen({ url }: { url: string }) {
   }
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div ref={rootRef} className="relative z-10 shrink-0">
       <div className="flex items-center gap-1">
         <OscLink />
-        <Link
+        <PillLink
           href="/radio"
           aria-label="Review SuperCollider patch code"
           title="SuperCollider patch"
-          className="rounded-full border border-border px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted hover:border-cyan hover:text-cyan"
+          className="border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
         >
           SC
-        </Link>
-        <button
-          type="button"
+        </PillLink>
+        <PillButton
           onClick={() => void toggle()}
           aria-pressed={playing}
           aria-label={playing ? "Stop Bosphorus radio" : "Listen to Bosphorus radio"}
@@ -87,22 +86,24 @@ export function RadioListen({ url }: { url: string }) {
               ? "Stream unreachable — is radio/docker-compose.yml up?"
               : "Local Icecast"
           }
-          className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider hover:opacity-80 ${
-            playing ? "border-green text-green" : "border-red text-red"
-          }`}
+          className={
+            playing
+              ? "border-green text-green hover:bg-green/15 active:bg-green/25"
+              : "border-red text-red hover:bg-red/15 active:bg-red/25"
+          }
         >
           {playing ? "● Radio" : error ? "Radio · off" : "▶ Radio"}
-        </button>
+        </PillButton>
         {playing ? (
-          <button
-            type="button"
+          <PillButton
+            compact
             aria-expanded={faderOpen}
             aria-label="Volume"
             onClick={() => setFaderOpen((open) => !open)}
-            className="rounded-full border border-border px-2 py-1 font-mono text-[11px] text-muted hover:opacity-80"
+            className="min-w-7 border-border text-muted hover:bg-foreground/10 active:bg-foreground/15"
           >
             {faderOpen ? "▴" : "▾"}
-          </button>
+          </PillButton>
         ) : null}
       </div>
       {faderOpen ? (

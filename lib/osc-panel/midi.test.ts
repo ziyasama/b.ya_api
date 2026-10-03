@@ -9,11 +9,9 @@ import {
 import {
   cc7Message,
   cc14Messages,
-  enabledGateCc,
   enabledMidiLevels,
   MIDI_14BIT_MAX,
   MIDI_7BIT_MAX,
-  MIDI_GATE_BLIP_MS,
   MIDI_SYNC_GAP_MS,
   scaleToMidi14,
   DAY_PART_CC,
@@ -46,17 +44,14 @@ function windState(speed: number | null, available = true): BosphorusState {
 }
 
 describe("MIDI catalog", () => {
-  it("assigns a unique MSB in 1–14 so the LSB stays in the 14-bit pair", () => {
-    const ccs = OSC_CHANNELS.map((row) => row.cc);
-    assert.deepEqual(ccs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  it("assigns a unique MSB in 1–11 so the LSB stays in the 14-bit pair", () => {
+    const ccs = OSC_CHANNELS.map((row) => row.cc).sort((a, b) => a - b);
+    assert.deepEqual(ccs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     assert.equal(new Set(ccs).size, ccs.length);
     for (const row of OSC_CHANNELS) {
       assert.ok(row.cc >= 0 && row.cc <= 31);
-      if (row.kind === "level") {
-        assert.ok(row.range && row.range.max > row.range.min);
-      } else {
-        assert.equal(row.range, null);
-      }
+      assert.equal(row.kind, "level");
+      assert.ok(row.range.max > row.range.min);
     }
   });
 });
@@ -151,10 +146,6 @@ describe("cc14Messages", () => {
       [0xb0, 1, 31],
     ]);
   });
-
-  it("keeps a gate blip short", () => {
-    assert.ok(MIDI_GATE_BLIP_MS > 0 && MIDI_GATE_BLIP_MS <= 200);
-  });
 });
 
 describe("enabled rows", () => {
@@ -178,17 +169,7 @@ describe("enabled rows", () => {
     assert.deepEqual(enabledMidiLevels(windState(6.17), settings), [{ cc: 1, word: 4043 }]);
   });
 
-  it("blips only a gate whose MIDI switch is on", () => {
-    const settings = defaultOscSettings();
-    assert.equal(enabledGateCc("gateNorth", settings), null);
-    settings.gateNorth = { ...settings.gateNorth, osc: true };
-    assert.equal(enabledGateCc("gateNorth", settings), null);
-    settings.gateNorth = { ...settings.gateNorth, midi: true };
-    assert.equal(enabledGateCc("gateNorth", settings), 12);
-    assert.equal(enabledGateCc("windSpeed", settings), null);
-  });
-
-  it("primes every level that has a reading and leaves gates out", () => {
+  it("primes every level that has a reading", () => {
     const state = {
       windSpeed: 6.17,
       windDirection: 180,
@@ -213,9 +194,8 @@ describe("enabled rows", () => {
 
   it("arms only the levels that were sent", () => {
     const settings = defaultOscSettings();
-    const armed = withLevelMidiOn(settings, ["windSpeed", "gateNorth"]);
+    const armed = withLevelMidiOn(settings, ["windSpeed"]);
     assert.equal(armed?.windSpeed.midi, true);
-    assert.equal(armed?.gateNorth.midi, false);
     assert.equal(withLevelMidiOn(armed ?? settings, ["windSpeed"]), null);
     assert.ok(MIDI_SYNC_GAP_MS >= 10 && MIDI_SYNC_GAP_MS <= 50);
   });

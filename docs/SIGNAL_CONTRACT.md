@@ -19,7 +19,7 @@ can drop a voice instead of reading a normalized 0 as calm.
 | `/bosphorus/wave/swell` | Swell height | modelled | same cell | |
 | `/bosphorus/sea/temp` | Sea surface temperature | modelled | same cell | Gauges have no thermistor. |
 | `/bosphorus/sea/head` | Black Sea minus Marmara sea level | measured / derived | IOC `sile` − `yalo` (backups `igne`, `maer`) | Signed. 0.5 is level. Positive drives surface water south. **Not a current in m/s.** |
-| `/bosphorus/vessels/count` | Live AIS roster size | measured | AISStream | Warm-up empty is *unavailable*, not zero. |
+| `/bosphorus/vessels/count` | Live AIS roster size | measured | Open Waters (AISHub and coastal receivers) | An empty region is *unavailable*, not zero. |
 | `/bosphorus/vessels/northbound` | Vessels whose last latitude change was north | derived from AIS | sign of Δlat | Null/omitted until a vessel has moved. |
 | `/bosphorus/vessels/southbound` | Vessels whose last latitude change was south | derived from AIS | sign of Δlat | Toward the Marmara. |
 

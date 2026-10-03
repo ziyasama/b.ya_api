@@ -21,7 +21,7 @@ export default function MapPage() {
         </div>
         <Link
           href="/"
-          className="rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
+          className="rounded-md border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
         >
           ← Dashboard
         </Link>

@@ -18,8 +18,8 @@ export const MIDI_CHANNEL = 0;
 export const MIDI_7BIT_MAX = 127;
 
 /**
- * Plain CC for the local time of day. Sits just after the gate MSBs and
- * outside their fine bytes (CC 33–46), so Live can map it on its own.
+ * Plain CC for the local time of day. Sits after the level MSBs (CC 1–11)
+ * and outside their fine bytes (CC 33–43), so Live can map it on its own.
  */
 export const TIME_CC = 15;
 
@@ -53,9 +53,6 @@ export const DAY_PARTS: DayPart[] = [
   { id: "midnight", label: "Midnight", mode: "Phrygian", startMinute: 21 * 60, endMinute: 25 * 60, value: 23 },
   { id: "night", label: "Night", mode: "*Phrygian", startMinute: 1 * 60, endMinute: 5 * 60, value: 46 },
 ];
-
-/** How long a gate stays at full scale before it returns to zero. */
-export const MIDI_GATE_BLIP_MS = 100;
 
 /** Pause between CC pairs so Live can apply each mapped control in a dump. */
 export const MIDI_SYNC_GAP_MS = 20;
@@ -127,8 +124,7 @@ export function formatMidiCc(channel: OscChannel): string {
   return `CC ${channel.cc} + ${channel.cc + 32}`;
 }
 
-export function formatMidiRange(channel: OscChannel): string | null {
-  if (!channel.range) return null;
+export function formatMidiRange(channel: OscChannel): string {
   const { min, max } = channel.range;
   const span = `${min} to ${max}`;
   return channel.unit ? `${span} ${channel.unit}` : span;
@@ -158,7 +154,7 @@ export function enabledMidiLevels(
 /**
  * Every level that currently has a reading. The Sync button uses this to
  * prime a Live set that is already mapped, including rows whose MIDI switch
- * is still off. Gates are events and are left out.
+ * is still off.
  */
 export function snapshotMidiLevels(state: BosphorusState | null): MidiLevel[] {
   const levels: MidiLevel[] = [];
@@ -177,7 +173,7 @@ export function snapshotMidiLevels(state: BosphorusState | null): MidiLevel[] {
 
 /**
  * Turn MIDI on for the levels just sent, so the next compiled snapshot keeps
- * updating Live. Returns null when those rows are already on. Gates stay as they are.
+ * updating Live. Returns null when those rows are already on.
  */
 export function withLevelMidiOn(
   settings: Record<string, OscChannelSetting>,
@@ -194,14 +190,4 @@ export function withLevelMidiOn(
     changed = true;
   }
   return changed ? next : null;
-}
-
-/** Gate CC when that row's MIDI switch is on. Null means do not blip. */
-export function enabledGateCc(
-  id: string,
-  settings: Record<string, OscChannelSetting>,
-): number | null {
-  const channel = oscChannel(id);
-  if (!channel || channel.kind !== "bang" || !settings[id]?.midi) return null;
-  return channel.cc;
 }

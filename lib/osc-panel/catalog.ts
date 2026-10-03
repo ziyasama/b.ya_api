@@ -1,3 +1,4 @@
+import { RANGES } from "@/lib/standardize/ranges";
 import type { BosphorusState } from "@/lib/standardize/types";
 
 /** Browser OSC goes to this machine only, on IPv4 and IPv6. The worker's stream stays on 57121. */
@@ -14,7 +15,7 @@ export type MidiRange = { min: number; max: number };
 
 export type OscChannel = {
   id: string;
-  group: "Wind" | "Waves & surface" | "Sea level" | "Traffic" | "Gates";
+  group: "Wind" | "Waves" | "Sea level & temp" | "Maritime traffic";
   label: string;
   address: string;
   defaultPort: number;
@@ -22,8 +23,8 @@ export type OscChannel = {
   kind: OscChannelKind;
   /** MSB controller. The LSB is this plus 32, and it must stay in 0–31. */
   cc: number;
-  /** Full scale for a level. Gates blip and have no range. */
-  range: MidiRange | null;
+  /** Full scale for this reading. */
+  range: MidiRange;
 };
 
 /**
@@ -35,23 +36,20 @@ export type OscChannel = {
  * real-world span for that 14-bit value: wind in m/s, direction in degrees,
  * and so on. Level spans match lib/standardize/ranges.ts. Black Sea is the
  * gauge anomaly against its own rolling mean, so it is signed and wider than
- * the head. Gates have no range.
+ * the head.
  */
 export const OSC_CHANNELS: OscChannel[] = [
   { id: "windSpeed", group: "Wind", label: "Wind", address: "/bosphorus/wind/speed", defaultPort: 9101, unit: "m/s", kind: "level", cc: 1, range: { min: 0, max: 25 } },
   { id: "windDirection", group: "Wind", label: "Wind dir", address: "/bosphorus/wind/direction", defaultPort: 9102, unit: "°", kind: "level", cc: 2, range: { min: 0, max: 360 } },
-  { id: "waveHeight", group: "Waves & surface", label: "Wave", address: "/bosphorus/wave/height", defaultPort: 9103, unit: "m", kind: "level", cc: 3, range: { min: 0, max: 3 } },
-  { id: "wavePeriod", group: "Waves & surface", label: "Wave period", address: "/bosphorus/wave/period", defaultPort: 9104, unit: "s", kind: "level", cc: 4, range: { min: 0, max: 9 } },
-  { id: "swellHeight", group: "Waves & surface", label: "Swell", address: "/bosphorus/wave/swell", defaultPort: 9105, unit: "m", kind: "level", cc: 5, range: { min: 0, max: 3 } },
-  { id: "seaSurfaceTemp", group: "Waves & surface", label: "Water temp", address: "/bosphorus/sea/temp", defaultPort: 9106, unit: "°C", kind: "level", cc: 6, range: { min: 6, max: 28 } },
-  { id: "seaLevelHead", group: "Sea level", label: "Sea level head", address: "/bosphorus/sea/head", defaultPort: 9107, unit: "m", kind: "level", cc: 7, range: { min: -0.3, max: 0.3 } },
-  { id: "seaLevelBlackSea", group: "Sea level", label: "Black Sea", address: "/bosphorus/sea/black", defaultPort: 9108, unit: "m", kind: "level", cc: 8, range: { min: -0.5, max: 0.5 } },
-  { id: "vesselCount", group: "Traffic", label: "Vessels", address: "/bosphorus/vessels/count", defaultPort: 9109, unit: "", kind: "level", cc: 9, range: { min: 0, max: 80 } },
-  { id: "northboundCount", group: "Traffic", label: "Northbound", address: "/bosphorus/vessels/northbound", defaultPort: 9110, unit: "", kind: "level", cc: 10, range: { min: 0, max: 80 } },
-  { id: "southboundCount", group: "Traffic", label: "Southbound", address: "/bosphorus/vessels/southbound", defaultPort: 9111, unit: "", kind: "level", cc: 11, range: { min: 0, max: 80 } },
-  { id: "gateNorth", group: "Gates", label: "North gate", address: "/bosphorus/event/gate/north", defaultPort: 9112, unit: "", kind: "bang", cc: 12, range: null },
-  { id: "gateSouth", group: "Gates", label: "South gate", address: "/bosphorus/event/gate/south", defaultPort: 9113, unit: "", kind: "bang", cc: 13, range: null },
-  { id: "gateAny", group: "Gates", label: "Any gate", address: "/bosphorus/event/gate", defaultPort: 9114, unit: "", kind: "bang", cc: 14, range: null },
+  { id: "waveHeight", group: "Waves", label: "Wave", address: "/bosphorus/wave/height", defaultPort: 9103, unit: "m", kind: "level", cc: 3, range: { min: 0, max: 3 } },
+  { id: "wavePeriod", group: "Waves", label: "Wave period", address: "/bosphorus/wave/period", defaultPort: 9104, unit: "s", kind: "level", cc: 4, range: { min: 0, max: 9 } },
+  { id: "swellHeight", group: "Waves", label: "Swell", address: "/bosphorus/wave/swell", defaultPort: 9105, unit: "m", kind: "level", cc: 5, range: { min: 0, max: 3 } },
+  { id: "seaSurfaceTemp", group: "Sea level & temp", label: "Water temp", address: "/bosphorus/sea/temp", defaultPort: 9106, unit: "°C", kind: "level", cc: 6, range: { min: 6, max: 28 } },
+  { id: "seaLevelHead", group: "Sea level & temp", label: "Sea level head", address: "/bosphorus/sea/head", defaultPort: 9107, unit: "m", kind: "level", cc: 7, range: { min: -0.3, max: 0.3 } },
+  { id: "seaLevelBlackSea", group: "Sea level & temp", label: "Black Sea", address: "/bosphorus/sea/black", defaultPort: 9108, unit: "m", kind: "level", cc: 8, range: { min: -0.5, max: 0.5 } },
+  { id: "vesselCount", group: "Maritime traffic", label: "Vessels", address: "/bosphorus/vessels/count", defaultPort: 9109, unit: "", kind: "level", cc: 9, range: RANGES.vesselCount },
+  { id: "northboundCount", group: "Maritime traffic", label: "Northbound", address: "/bosphorus/vessels/northbound", defaultPort: 9110, unit: "", kind: "level", cc: 10, range: { min: 0, max: 80 } },
+  { id: "southboundCount", group: "Maritime traffic", label: "Southbound", address: "/bosphorus/vessels/southbound", defaultPort: 9111, unit: "", kind: "level", cc: 11, range: { min: 0, max: 80 } },
 ];
 
 const CHANNELS_BY_ID = new Map(OSC_CHANNELS.map((channel) => [channel.id, channel]));

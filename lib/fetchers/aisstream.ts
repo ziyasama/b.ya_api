@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { BOSPHORUS, env, envNumber } from "@/lib/env";
+import { BOSPHORUS, env, envNumber, vesselCountWindowMs } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { recall, remember } from "@/lib/fetchers/last-known";
 import type { AisSnapshotRaw, AisVesselRaw, FetcherResult } from "@/lib/fetchers/types";
@@ -38,7 +38,7 @@ type AisStreamMessage = {
 
 function snapshotFromMap(vessels: Map<string, AisVesselRaw>): AisSnapshotRaw {
   const now = Date.now();
-  const staleMs = envNumber("AIS_STALE_MS", 900_000);
+  const staleMs = vesselCountWindowMs();
   const live: AisVesselRaw[] = [];
   for (const vessel of vessels.values()) {
     if (now - Date.parse(vessel.lastSeen) <= staleMs) {
@@ -69,7 +69,10 @@ function toIsoTime(raw: string | undefined): string {
 }
 
 /**
- * Persistent AISStream.io WebSocket. Call start() once from the worker.
+ * AISStream.io WebSocket. Not used by the worker: on 11 Sep 2026 the Istanbul
+ * region stayed "subscribed" and delivered no ships, so the roster now comes
+ * from Open Waters (`lib/fetchers/openwaters.ts`).
+ *
  * snapshot() never throws; it returns last-known-good on failure.
  */
 export class AisStreamFetcher {

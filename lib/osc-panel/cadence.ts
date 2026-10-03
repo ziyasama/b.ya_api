@@ -1,4 +1,4 @@
-import { envNumber } from "@/lib/env";
+import { envNumber, vesselCountWindowLabel, vesselCountWindowMs } from "@/lib/env";
 import { metarPollMs } from "@/lib/fetchers/metar";
 import { openMeteoPollMs } from "@/lib/fetchers/open-meteo";
 import { seaLevelPollMs } from "@/lib/fetchers/sea-level";
@@ -22,7 +22,7 @@ export function oscCadence(): Record<string, string> {
   const marine = every(openMeteoPollMs());
   const sea = every(seaLevelPollMs());
   const logged = every(envNumber("WORKER_PERSIST_MS", 120_000));
-  const gates = every(envNumber("VESSEL_EVENT_FLUSH_MS", 10_000));
+  const vessels = `${vesselCountWindowLabel(vesselCountWindowMs())}, logged ${logged}`;
 
   return {
     windSpeed: `Collected ${metar}`,
@@ -33,11 +33,8 @@ export function oscCadence(): Record<string, string> {
     seaSurfaceTemp: `Collected ${marine}`,
     seaLevelHead: `Collected ${sea}`,
     seaLevelBlackSea: `Collected ${sea}`,
-    vesselCount: `Live AIS, logged ${logged}`,
-    northboundCount: `Live AIS, logged ${logged}`,
-    southboundCount: `Live AIS, logged ${logged}`,
-    gateNorth: `On crossing, saved ${gates}`,
-    gateSouth: `On crossing, saved ${gates}`,
-    gateAny: `On crossing, saved ${gates}`,
+    vesselCount: vessels,
+    northboundCount: vessels,
+    southboundCount: vessels,
   };
 }

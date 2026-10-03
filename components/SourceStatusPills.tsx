@@ -26,7 +26,7 @@ export function SourceStatusPill({
   return (
     <span
       title={entry.error ?? entry.fetchedAt}
-      className={`shrink-0 rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider ${COLOR[entry.health] ?? COLOR.unavailable}`}
+      className={`shrink-0 rounded-md border px-3 py-1 font-mono text-[11px] uppercase tracking-wider ${COLOR[entry.health] ?? COLOR.unavailable}`}
     >
       {label} · {entry.health}
     </span>

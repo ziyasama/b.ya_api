@@ -1,8 +1,6 @@
 import {
   cc7Message,
   cc14Messages,
-  MIDI_14BIT_MAX,
-  MIDI_GATE_BLIP_MS,
   MIDI_SYNC_GAP_MS,
 } from "@/lib/osc-panel/midi";
 
@@ -24,7 +22,6 @@ let output: MIDIOutput | null = null;
 let status: MidiStatus = IDLE;
 let connecting: Promise<void> | null = null;
 const listeners = new Set<() => void>();
-const blips = new Map<number, number>();
 
 function emit() {
   for (const listener of listeners) listener();
@@ -153,25 +150,4 @@ export async function sendCc14Sequence(
     if (sent < words.length) await wait(MIDI_SYNC_GAP_MS);
   }
   return sent;
-}
-
-/** Full scale, then zero. A second blip on the same CC restarts the drop. */
-export function blipCc14(cc: number) {
-  if (status.state !== "ready") return;
-  sendCc14(cc, MIDI_14BIT_MAX);
-  const pending = blips.get(cc);
-  if (pending != null) window.clearTimeout(pending);
-  const timer = window.setTimeout(() => {
-    blips.delete(cc);
-    sendCc14(cc, 0);
-  }, MIDI_GATE_BLIP_MS);
-  blips.set(cc, timer);
-}
-
-export function releaseMidiBlips() {
-  for (const [cc, timer] of blips) {
-    window.clearTimeout(timer);
-    sendCc14(cc, 0);
-  }
-  blips.clear();
 }

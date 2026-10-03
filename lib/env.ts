@@ -15,6 +15,27 @@ export function envNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** A ship stays in the vessel count for this long after its last AIS position. */
+export const VESSEL_COUNT_WINDOW_MS = 4 * 60 * 60 * 1000;
+
+export function vesselCountWindowMs(): number {
+  return envNumber("AIS_STALE_MS", VESSEL_COUNT_WINDOW_MS);
+}
+
+/** "Last 4 hours" — the span named on the traffic rows. */
+export function vesselCountWindowLabel(ms = vesselCountWindowMs()): string {
+  if (ms % 3_600_000 === 0) {
+    const hours = ms / 3_600_000;
+    return hours === 1 ? "Last hour" : `Last ${hours} hours`;
+  }
+  if (ms % 60_000 === 0) {
+    const minutes = ms / 60_000;
+    return minutes === 1 ? "Last minute" : `Last ${minutes} min`;
+  }
+  const seconds = Math.round(ms / 1000);
+  return seconds === 1 ? "Last second" : `Last ${seconds} s`;
+}
+
 export function cartoApiKey(): string {
   return env("NEXT_PUBLIC_CARTO_API_KEY");
 }
@@ -41,9 +62,9 @@ export const BOSPHORUS = {
   latMax: () => envNumber("BOSPHORUS_LAT_MAX", 41.24),
   lonMin: () => envNumber("BOSPHORUS_LON_MIN", 28.95),
   lonMax: () => envNumber("BOSPHORUS_LON_MAX", 29.15),
-  // Wider AIS box: Sea of Marmara -> strait -> Black Sea approaches. Sent
-  // alongside the tight box in the same AISStream subscription because the
-  // tight box can sit silent for minutes (see lib/fetchers/aisstream.ts).
+  // Wider AIS box: Sea of Marmara -> strait -> Black Sea approaches.
+  // This is the box Open Waters is asked for (lib/fetchers/openwaters.ts).
+  // The strait box sits inside it.
   approachLatMin: () => envNumber("BOSPHORUS_APPROACH_LAT_MIN", 40.85),
   approachLatMax: () => envNumber("BOSPHORUS_APPROACH_LAT_MAX", 41.4),
   approachLonMin: () => envNumber("BOSPHORUS_APPROACH_LON_MIN", 28.7),

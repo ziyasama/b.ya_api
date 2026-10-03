@@ -17,9 +17,9 @@ services) means two AIS subscriptions and duplicate rows.
 | Overlap | 0 s so a deploy does not run two workers at once |
 | Health | HTTP on `$PORT` (Next.js still binds it) |
 
-The worker needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
-`AISSTREAM_API_KEY` on this service. Do not set `OSC_*` / `MIDI_*`, and do
-not set Copernicus credentials.
+The worker needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+on this service. Vessel positions come from Open Waters and need no key.
+Do not set `OSC_*` / `MIDI_*`, and do not set Copernicus credentials.
 
 Once Railway logs show `persist.ok`, stop any local `npm run worker` so the
 laptop is not a second collector.

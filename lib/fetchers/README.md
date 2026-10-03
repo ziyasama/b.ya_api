@@ -49,7 +49,7 @@ flow: positive drives water south toward the Marmara.
 The service returns a fixed ~2,100 rows for any requested window, so a shorter
 window buys time resolution rather than a smaller payload.
 
-### AISStream — `AisSnapshotRaw`
+### Open Waters — `AisSnapshotRaw`
 
 ```ts
 {
@@ -66,10 +66,11 @@ window buys time resolution rather than a smaller payload.
 }
 ```
 
-Event-driven: AISStream pushes only when a vessel transmits, so the roster
-takes minutes to fill. Within `AIS_WARMUP_MS` of the subscription confirming,
-an empty roster is reported as `unavailable` rather than as a count of zero,
-because a silent feed is not an empty strait. The roster is also persisted to
+The approach box (Marmara, the strait, and the Black Sea mouth) is polled from
+Open Waters' GeoJSON snapshot and followed on their WebSocket. AISStream's
+Istanbul region went silent on 11 Sep 2026 while reporting a healthy
+connection, which published the strait as empty. A pull that returns no fresh
+vessels is `unavailable`, not a count of zero. The roster is also persisted to
 `vessel_positions` and rehydrated on boot so a restart does not rebuild from
 nothing.
 

@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import { envNumber } from "@/lib/env";
 import { log } from "@/lib/logger";
-import { AisStreamFetcher, aisSnapshotMs } from "@/lib/fetchers/aisstream";
+import { OpenWatersFetcher, aisSnapshotMs } from "@/lib/fetchers/openwaters";
 import { fetchMetar, metarPollMs } from "@/lib/fetchers/metar";
 import { fetchOpenMeteo, openMeteoPollMs } from "@/lib/fetchers/open-meteo";
 import { fetchSeaLevel, seaLevelPollMs } from "@/lib/fetchers/sea-level";
@@ -18,7 +18,7 @@ import { loadRoster, saveEvents, saveRoster } from "@/lib/vessels/store";
 config({ path: ".env.local" });
 config();
 
-const ais = new AisStreamFetcher();
+const ais = new OpenWatersFetcher();
 
 function pending<T>(what: string): FetcherResult<T> {
   return {
@@ -129,6 +129,13 @@ async function main(): Promise<void> {
       latestSeaLevel = await fetchSeaLevel();
     });
   }, seaLevelPollMs());
+
+  // First row after the opening fetches, then on the regular clock. Waiting
+  // the full interval left the dashboard on the previous reading.
+  const firstPersist = setTimeout(() => {
+    void persistCycle();
+  }, 20_000);
+  timers.push(firstPersist);
 
   interval(() => {
     void persistCycle();

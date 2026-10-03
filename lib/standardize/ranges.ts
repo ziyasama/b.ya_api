@@ -6,6 +6,20 @@
  * roughly ten times higher than the displaced inshore cell the pipeline used
  * before. Sea level head is signed, so 0 m maps to 0.5.
  */
+
+/**
+ * Performance span around a logged low and high. The ends sit past the
+ * readings we have seen, on a 10-ship grid, so one extra ship does not
+ * move the rail and a modest change stays inside the controller.
+ */
+export function softenCountRange(low: number, high: number): { min: number; max: number } {
+  const span = Math.max(0, high - low);
+  const pad = Math.max(50, Math.round(span * 0.5));
+  const min = Math.max(0, Math.floor((low - pad) / 10) * 10);
+  const max = Math.ceil((high + pad) / 10) * 10;
+  return { min, max: Math.max(max, min + 10) };
+}
+
 export const RANGES = {
   windSpeed: { min: 0, max: 25 },
   windDirection: { min: 0, max: 360 },
@@ -16,7 +30,10 @@ export const RANGES = {
   // 25 C measured on 2 Sep 2026, with late-August peaks nearer 28.
   seaSurfaceTemp: { min: 6, max: 28 },
   seaLevelHead: { min: -0.3, max: 0.3 },
-  vesselCount: { min: 0, max: 80 },
+  // Wide-box AIS on 3 Oct 2026, once the feed settled: 142–153 ships.
+  // Fifty ships of room past that logged low and high, rounded outward to
+  // tens, so a quieter hour and a busier one still move the controller.
+  vesselCount: softenCountRange(142, 153),
   northboundCount: { min: 0, max: 80 },
   southboundCount: { min: 0, max: 80 },
 

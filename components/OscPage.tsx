@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { PillButton, PillLink } from "@/components/PillControl";
 import {
   formatOscReading,
   isOscPort,
@@ -11,17 +12,13 @@ import {
   OSC_HOSTS,
   OSC_PORT_MAX,
   OSC_PORT_MIN,
-  oscChannel,
   type OscChannel,
   type OscOutbound,
 } from "@/lib/osc-panel/catalog";
 import {
-  enabledGateCc,
   enabledMidiLevels,
   formatMidiRange,
-  MIDI_14BIT_MAX,
   MIDI_CHANNEL,
-  MIDI_GATE_BLIP_MS,
   midiWord,
   scaleToMidi14,
   DAY_PART_CC,
@@ -33,11 +30,9 @@ import {
   withLevelMidiOn,
 } from "@/lib/osc-panel/midi";
 import {
-  blipCc14,
   connectMidi,
   getMidiStatus,
   getServerMidiStatus,
-  releaseMidiBlips,
   sendCc14,
   sendCc7,
   sendCc14Sequence,
@@ -55,7 +50,7 @@ import {
   updateOscSettings,
 } from "@/lib/osc-panel/settings";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
-import type { BosphorusStateRow, VesselEventRow } from "@/lib/supabase/database.types";
+import type { BosphorusStateRow } from "@/lib/supabase/database.types";
 import { rowToState } from "@/lib/standardize/row";
 import type { BosphorusState } from "@/lib/standardize/types";
 
@@ -91,26 +86,30 @@ async function postOsc(messages: OscOutbound[]): Promise<void> {
   }
 }
 
+function midiNeedsRetry(status: MidiStatus): boolean {
+  return status.state === "denied" || status.state === "no-output";
+}
+
 function MidiStatusLine({ status }: { status: MidiStatus }) {
   if (status.state === "ready") {
     return (
-      <p className="mt-1 text-xs text-muted">
+      <p className="text-xs text-muted">
         MIDI {status.name} · channel 1 · map the CC, not the +32 fine byte
       </p>
     );
   }
   if (status.state === "idle") {
-    return <p className="mt-1 text-xs text-muted">Opening MIDI…</p>;
+    return <p className="text-xs text-muted">Opening MIDI…</p>;
   }
   if (status.state === "connecting") {
-    return <p className="mt-1 text-xs text-muted">Allow MIDI for this site if Chrome asks.</p>;
+    return <p className="text-xs text-muted">Allow MIDI for this site if Chrome asks.</p>;
   }
   if (status.state === "unsupported") {
-    return <p className="mt-1 text-xs text-gold">Web MIDI needs Chrome.</p>;
+    return <p className="text-xs text-gold">Web MIDI needs Chrome.</p>;
   }
   const blocked = status.state === "denied";
   return (
-    <div className="mt-2 flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-2">
       <p
         className={`text-xs ${blocked ? "text-red" : "text-muted"}`}
         title={blocked ? status.message : undefined}
@@ -128,33 +127,50 @@ function MidiStatusLine({ status }: { status: MidiStatus }) {
           on each row.
         </p>
       )}
-      <button
-        type="button"
-        onClick={() => void connectMidi()}
-        className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted hover:border-cyan hover:text-cyan"
-      >
-        Retry MIDI
-      </button>
     </div>
   );
 }
 
-function OutputColumn({
-  title,
-  children,
-  actions,
+type OutputMode = "midi" | "osc";
+
+function OutputModeToggle({
+  mode,
+  onChange,
 }: {
-  title: string;
-  children: ReactNode;
-  actions: ReactNode;
+  mode: OutputMode;
+  onChange: (mode: OutputMode) => void;
 }) {
+  const tab = (target: OutputMode, label: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={mode === target}
+      onClick={() => onChange(target)}
+      className={`px-2 py-0.5 font-semibold tracking-tight ${
+        mode === target ? "text-foreground" : "text-muted/35 hover:text-muted/60"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div className="flex h-full min-w-0 flex-col gap-2">
-      <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-background/40 px-3 py-2.5">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-cyan">{title}</p>
-        <dl className="flex flex-col gap-1.5">{children}</dl>
-      </div>
-      <div className="flex shrink-0 items-center justify-end gap-3 px-1">{actions}</div>
+    <div
+      role="tablist"
+      aria-label="Output protocol"
+      className="inline-flex w-fit shrink-0 items-center rounded-lg border border-border bg-background/40 p-1 text-2xl sm:text-3xl"
+    >
+      {tab("midi", "MIDI")}
+      <div className="mx-0.5 w-px self-stretch bg-border" aria-hidden="true" />
+      {tab("osc", "OSC")}
+    </div>
+  );
+}
+
+function OutputPanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-background/40 px-3 py-2.5">
+      <dl className="flex flex-col gap-1.5">{children}</dl>
     </div>
   );
 }
@@ -169,14 +185,14 @@ function PanelTest({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <PillButton
+      compact
       aria-label={label}
       onClick={onClick}
-      className="rounded-full border border-gold px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-gold hover:opacity-80"
+      className="border-gold text-gold hover:bg-gold/15 active:bg-gold/25"
     >
       {sent ? "Sent" : "Test"}
-    </button>
+    </PillButton>
   );
 }
 
@@ -190,18 +206,20 @@ function PanelSwitch({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <PillButton
+      compact
       role="switch"
       aria-checked={on}
       aria-label={label}
       onClick={onClick}
-      className={`inline-flex min-w-10 items-center justify-center rounded-full border px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider ${
-        on ? "border-green text-green" : "border-red text-red"
-      }`}
+      className={
+        on
+          ? "border-green text-green hover:bg-green/15 active:bg-green/25"
+          : "border-red text-red hover:bg-red/15 active:bg-red/25"
+      }
     >
       {on ? "On" : "Off"}
-    </button>
+    </PillButton>
   );
 }
 
@@ -365,7 +383,7 @@ function TimeMidiPanel({ onError }: { onError: (message: string | null) => void 
             </ul>
           </div>
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-3 px-1">
+        <div className="relative z-10 flex shrink-0 items-center justify-end gap-1.5 px-1">
           <PanelTest label="Send time MIDI once" sent={sent} onClick={() => void testTime()} />
           <PanelSwitch
             label={`Time MIDI ${midiOn ? "on" : "off"}`}
@@ -391,6 +409,23 @@ function groupsOf(channels: OscChannel[]): Array<{ group: string; channels: OscC
   return groups;
 }
 
+/** Pair related readings side by side, matching the dashboard layout. */
+const CHANNEL_ROW_LAYOUT: Record<string, string[][]> = {
+  Wind: [["windSpeed", "windDirection"]],
+  Waves: [["waveHeight", "wavePeriod", "swellHeight"]],
+  "Sea level & temp": [["seaSurfaceTemp", "seaLevelHead", "seaLevelBlackSea"]],
+  "Maritime traffic": [["vesselCount", "northboundCount", "southboundCount"]],
+};
+
+function rowsForGroup(group: string, channels: OscChannel[]): OscChannel[][] {
+  const layout = CHANNEL_ROW_LAYOUT[group];
+  if (!layout) return channels.map((channel) => [channel]);
+  const byId = new Map(channels.map((channel) => [channel.id, channel]));
+  return layout
+    .map((row) => row.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])))
+    .filter((row) => row.length > 0);
+}
+
 export function OscLink() {
   const settings = useSyncExternalStore(subscribeOscSettings, getOscSettings, getServerOscSettings);
   const timeOn = useSyncExternalStore(subscribeTimeMidi, getTimeMidi, getServerTimeMidi);
@@ -402,16 +437,158 @@ export function OscLink() {
     });
 
   return (
-    <Link
+    <PillLink
       href="/osc"
       aria-label="OSC and MIDI outputs"
       title={`UDP OSC to ${OSC_HOSTS}. MIDI CC to the IAC Driver.`}
-      className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider hover:opacity-80 ${
-        anyOn ? "border-cyan text-cyan" : "border-border text-muted hover:border-cyan hover:text-cyan"
-      }`}
+      className={
+        anyOn
+          ? "border-cyan text-cyan hover:bg-cyan/15 active:bg-cyan/25"
+          : "border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
+      }
     >
       {anyOn ? "● OSC · MIDI" : "OSC · MIDI"}
-    </Link>
+    </PillLink>
+  );
+}
+
+function channelColumnClass(columnIndex: number, columnCount: number): string {
+  if (columnCount <= 1) return "";
+  const parts: string[] = [];
+  if (columnIndex > 0) parts.push("sm:border-l", "sm:border-foreground/40", "sm:pl-4");
+  if (columnIndex < columnCount - 1) parts.push("sm:pr-4");
+  return parts.join(" ");
+}
+
+function ChannelOutput({
+  channel,
+  mode,
+  state,
+  settings,
+  cadence,
+  sentId,
+  portDraft,
+  columnIndex,
+  columnCount,
+  onTestOsc,
+  onTestMidi,
+  onToggle,
+  onPortDraft,
+  onPortBlur,
+  onPortStep,
+}: {
+  channel: OscChannel;
+  mode: OutputMode;
+  state: BosphorusState | null;
+  settings: Record<string, { osc: boolean; midi: boolean; port: number }>;
+  cadence: Record<string, string>;
+  sentId: string | null;
+  portDraft: Record<string, string>;
+  columnIndex: number;
+  columnCount: number;
+  onTestOsc: (channel: OscChannel, port: number) => void;
+  onTestMidi: (channel: OscChannel) => void;
+  onToggle: (id: string, patch: Partial<{ osc: boolean; midi: boolean; port: number }>) => void;
+  onPortDraft: (id: string, raw: string) => void;
+  onPortBlur: (id: string, raw: string, savedPort: number | undefined) => void;
+  onPortStep: (id: string, fallback: number, savedPort: number | undefined, delta: 1 | -1) => void;
+}) {
+  const setting = settings[channel.id];
+  const value = levelReading(state, channel.id);
+  const shown = formatOscReading(value, channel.kind);
+  const word = midiWord(channel, value);
+  const span = formatMidiRange(channel);
+  const port = setting?.port ?? channel.defaultPort;
+  const actions =
+    mode === "osc" ? (
+      <>
+        <PanelTest
+          label={`Send ${channel.label} OSC once`}
+          sent={sentId === `${channel.id}:osc`}
+          onClick={() => onTestOsc(channel, port)}
+        />
+        <PanelSwitch
+          label={`${channel.label} OSC ${setting?.osc ? "on" : "off"}`}
+          on={setting?.osc ?? false}
+          onClick={() => onToggle(channel.id, { osc: !setting?.osc })}
+        />
+      </>
+    ) : (
+      <>
+        <PanelTest
+          label={`Send ${channel.label} MIDI once`}
+          sent={sentId === `${channel.id}:midi`}
+          onClick={() => onTestMidi(channel)}
+        />
+        <PanelSwitch
+          label={`${channel.label} MIDI ${setting?.midi ? "on" : "off"}`}
+          on={setting?.midi ?? false}
+          onClick={() => onToggle(channel.id, { midi: !setting?.midi })}
+        />
+      </>
+    );
+
+  return (
+    <div className={`flex min-w-0 flex-col gap-3 ${channelColumnClass(columnIndex, columnCount)}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 pr-2">
+          <p className="truncate text-sm text-foreground">
+            {channel.label}
+            <span className="ml-2 font-mono text-muted">
+              {shown}
+              {channel.unit ? ` ${channel.unit}` : ""}
+            </span>
+          </p>
+          <p className="truncate text-[11px] text-muted">{cadence[channel.id]}</p>
+        </div>
+        <div className="relative z-10 flex shrink-0 items-center gap-1.5">{actions}</div>
+      </div>
+      {mode === "osc" ? (
+        <OutputPanel>
+          <Fact
+            label="Address"
+            value={
+              <span className="block truncate" title={channel.address}>
+                {channel.address}
+              </span>
+            }
+          />
+          <Fact label="Host" value={OSC_HOSTS} />
+          <Fact
+            label="Port"
+            value={
+              <OscPortInput
+                label={`${channel.label} OSC port`}
+                value={portDraft[channel.id] ?? String(port)}
+                onChange={(raw) => onPortDraft(channel.id, raw)}
+                onBlur={(raw) => onPortBlur(channel.id, raw, setting?.port)}
+                onStep={(delta) => onPortStep(channel.id, port, setting?.port, delta)}
+              />
+            }
+          />
+          <Fact
+            label="Sends"
+            value={`${shown}${channel.unit ? ` ${channel.unit}` : ""}`}
+          />
+        </OutputPanel>
+      ) : (
+        <OutputPanel>
+          <Fact
+            label="CC / Fine CC"
+            value={
+              <>
+                <span title="Map this controller in Live.">{channel.cc}</span>
+                <span className="text-muted"> / </span>
+                <span title="Low 7 bits of the same 14-bit value.">{channel.cc + 32}</span>
+              </>
+            }
+          />
+          <Fact label="Channel" value={MIDI_CHANNEL + 1} />
+          <Fact label="Full scale" value={span} />
+          <Fact label="Now" value={word != null ? String(word) : "—"} />
+        </OutputPanel>
+      )}
+    </div>
   );
 }
 
@@ -423,6 +600,7 @@ export function OscPage({
   cadence: Record<string, string>;
 }) {
   const [state, setState] = useState(initial);
+  const [outputMode, setOutputMode] = useState<OutputMode>("midi");
   const [live, setLive] = useState(false);
   const [portDraft, setPortDraft] = useState<Record<string, string>>({});
   const [sendError, setSendError] = useState<string | null>(null);
@@ -467,7 +645,6 @@ export function OscPage({
 
   useEffect(() => {
     void connectMidi();
-    return () => releaseMidiBlips();
   }, []);
 
   useEffect(() => {
@@ -497,59 +674,6 @@ export function OscPage({
     };
   }, [state, settings]);
 
-  useEffect(() => {
-    let supabase: ReturnType<typeof createBrowserSupabase>;
-    try {
-      supabase = createBrowserSupabase();
-    } catch {
-      return;
-    }
-
-    const channel = supabase
-      .channel("osc-page-vessel-events")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "vessel_events" },
-        (payload) => {
-          const row = payload.new as VesselEventRow;
-          const current = getOscSettings();
-          const messages: OscOutbound[] = [];
-          const push = (id: string) => {
-            const channelDef = oscChannel(id);
-            const setting = current[id];
-            if (!channelDef || !setting?.osc || !isOscPort(setting.port)) return;
-            messages.push({ address: channelDef.address, port: setting.port, value: 1 });
-          };
-          const blipGate = (id: string) => {
-            const cc = enabledGateCc(id, current);
-            if (cc != null) blipCc14(cc);
-          };
-          push("gateAny");
-          blipGate("gateAny");
-          if (row.gate === "north") {
-            push("gateNorth");
-            blipGate("gateNorth");
-          }
-          if (row.gate === "south") {
-            push("gateSouth");
-            blipGate("gateSouth");
-          }
-          if (messages.length === 0) return;
-          void postOsc(messages).then(
-            () => setSendError(null),
-            (error: unknown) => {
-              setSendError(error instanceof Error ? error.message : "OSC send failed");
-            },
-          );
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, []);
-
   function portFor(id: string, fallback: number): number | null {
     const draft = portDraft[id];
     if (draft != null && draft !== "") {
@@ -568,7 +692,7 @@ export function OscPage({
 
   function testOsc(channel: OscChannel, fallbackPort: number) {
     const port = portFor(channel.id, fallbackPort);
-    const value = channel.kind === "bang" ? 1 : levelReading(state, channel.id);
+    const value = levelReading(state, channel.id);
     if (port == null || value == null) {
       setSendError(value == null ? `No ${channel.label} reading to send` : "Port out of range");
       return;
@@ -601,16 +725,12 @@ export function OscPage({
   }
 
   function testMidi(channel: OscChannel) {
-    if (channel.kind === "bang") {
-      blipCc14(channel.cc);
-    } else {
-      const value = levelReading(state, channel.id);
-      if (value == null || !channel.range) {
-        setSendError(`No ${channel.label} reading to send`);
-        return;
-      }
-      sendCc14(channel.cc, scaleToMidi14(value, channel.range));
+    const value = levelReading(state, channel.id);
+    if (value == null) {
+      setSendError(`No ${channel.label} reading to send`);
+      return;
     }
+    sendCc14(channel.cc, scaleToMidi14(value, channel.range));
     setSendError(null);
     markSent(`${channel.id}:midi`);
   }
@@ -708,52 +828,76 @@ export function OscPage({
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-cyan">
-            Bosphorus
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">OSC · MIDI</h1>
-          <p className="mt-1 text-xs text-muted">
-            UDP {OSC_HOSTS}
-            {state?.createdAt ? ` · ${new Date(state.createdAt).toLocaleString()}` : ""}
-            {live ? " · realtime" : " · connecting"}
-          </p>
-          <MidiStatusLine status={midiStatus} />
-          {sendError ? (
-            <p className="mt-1 font-mono text-xs text-gold" title={sendError}>
-              {sendError}
-            </p>
-          ) : null}
-        </div>
+        <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-cyan">
+          Bosphorus
+        </p>
         <Link
           href="/"
-          className="shrink-0 rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
+          className="shrink-0 rounded-md border border-border px-3 py-1 text-xs text-muted hover:border-gold hover:text-gold"
         >
           ← Dashboard
         </Link>
-        <div className="col-span-2 flex items-end justify-between gap-4 border-t border-border pt-3">
-          <p className="max-w-xl text-xs text-muted">
-            Open the Live set, then Sync all. This pulls the latest compiled wind, wave, sea, and
-            traffic onto the mapped CCs and turns those MIDI rows on, so Live stays with the strait
-            while you play.
-          </p>
-          <button
-            type="button"
-            onClick={() => void syncMidi()}
-            disabled={syncing || midiStatus.state === "unsupported"}
-            aria-busy={syncing}
-            className="shrink-0 rounded-full border border-cyan bg-cyan/10 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-cyan hover:opacity-80 disabled:opacity-40"
-          >
-            {syncing ? "Syncing…" : "Sync all"}
-          </button>
+        <div className="col-span-2 flex w-full items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <OutputModeToggle mode={outputMode} onChange={setOutputMode} />
+            <div className="min-w-0 flex flex-col gap-1 pt-2.5">
+              <p className="text-xs text-muted">
+                {outputMode === "osc" ? (
+                  <>UDP {OSC_HOSTS}</>
+                ) : (
+                  <>MIDI channel {MIDI_CHANNEL + 1} · map the CC, not the +32 fine byte</>
+                )}
+                {state?.createdAt ? ` · ${new Date(state.createdAt).toLocaleString()}` : ""}
+                {live ? " · realtime" : " · connecting"}
+              </p>
+              {outputMode === "midi" ? <MidiStatusLine status={midiStatus} /> : null}
+            </div>
+          </div>
+          {outputMode === "midi" && midiNeedsRetry(midiStatus) ? (
+            <PillButton
+              compact
+              onClick={() => void connectMidi()}
+              className="self-center border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
+            >
+              Retry MIDI
+            </PillButton>
+          ) : null}
         </div>
-        {syncNote ? (
-          <p className="col-span-2 font-mono text-xs text-green">{syncNote}</p>
+        {sendError ? (
+          <p className="col-span-2 font-mono text-xs text-gold" title={sendError}>
+            {sendError}
+          </p>
         ) : null}
+        {outputMode === "midi" ? (
+          <>
+            <div className="col-span-2 flex items-end justify-between gap-4 border-t border-border pt-3">
+              <p className="max-w-xl text-xs text-muted">
+                Open the Live set, then Sync all. This pulls the latest compiled wind, wave, sea,
+                and traffic onto the mapped CCs and turns those MIDI rows on, so Live stays with
+                the strait while you play.
+              </p>
+              <PillButton
+                onClick={() => void syncMidi()}
+                disabled={syncing || midiStatus.state === "unsupported"}
+                aria-busy={syncing}
+                className="border-cyan bg-cyan/10 text-cyan hover:bg-cyan/20 active:bg-cyan/30 disabled:opacity-40"
+              >
+                {syncing ? "Syncing…" : "Sync all"}
+              </PillButton>
+            </div>
+            {syncNote ? (
+              <p className="col-span-2 font-mono text-xs text-green">{syncNote}</p>
+            ) : null}
+          </>
+        ) : (
+          <p className="col-span-2 border-t border-border pt-3 text-xs text-muted">
+            Each row has its own UDP port. TouchOSC and SuperCollider listen on {OSC_HOSTS}.
+          </p>
+        )}
       </header>
 
       <div className="flex flex-col gap-8">
-        <TimeMidiPanel onError={setSendError} />
+        {outputMode === "midi" ? <TimeMidiPanel onError={setSendError} /> : null}
         {groupsOf(OSC_CHANNELS).map((group) => (
           <section key={group.group} className="flex flex-col gap-3">
             <div className="flex items-center gap-4">
@@ -763,133 +907,55 @@ export function OscPage({
               <div className="h-px flex-1 bg-foreground/25" aria-hidden="true" />
             </div>
             <ul className="overflow-hidden rounded-xl border border-border bg-panel">
-              {group.channels.map((channel) => {
-                const setting = settings[channel.id];
-                const value = levelReading(state, channel.id);
-                const shown = formatOscReading(value, channel.kind);
-                const word = midiWord(channel, value);
-                const span = formatMidiRange(channel);
-                const port = setting?.port ?? channel.defaultPort;
-                return (
-                  <li
-                    key={channel.id}
-                    className="flex flex-col gap-3 border-b border-border px-4 py-3 last:border-b-0"
+              {rowsForGroup(group.group, group.channels).map((row, rowIndex) => (
+                <li
+                  key={`${group.group}-${rowIndex}`}
+                  className="border-b border-border px-4 py-3 last:border-b-0"
+                >
+                  <div
+                    className={`grid grid-cols-1 items-stretch gap-4 ${
+                      row.length >= 3
+                        ? "sm:grid-cols-3 sm:gap-0"
+                        : row.length === 2
+                          ? "sm:grid-cols-2 sm:gap-0"
+                          : ""
+                    }`}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-sm text-foreground">
-                        {channel.label}
-                        <span className="ml-2 font-mono text-muted">
-                          {shown}
-                          {channel.unit ? ` ${channel.unit}` : ""}
-                        </span>
-                      </p>
-                      <p className="text-[11px] text-muted">{cadence[channel.id]}</p>
-                    </div>
-                    <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
-                      <OutputColumn
-                        title="OSC"
-                        actions={
-                          <>
-                            <PanelTest
-                              label={`Send ${channel.label} OSC once`}
-                              sent={sentId === `${channel.id}:osc`}
-                              onClick={() => testOsc(channel, port)}
-                            />
-                            <PanelSwitch
-                              label={`${channel.label} OSC ${setting?.osc ? "on" : "off"}`}
-                              on={setting?.osc ?? false}
-                              onClick={() => commit(channel.id, { osc: !setting?.osc })}
-                            />
-                          </>
-                        }
-                      >
-                        <Fact
-                          label="Address"
-                          value={
-                            <span className="block truncate" title={channel.address}>
-                              {channel.address}
-                            </span>
-                          }
-                        />
-                        <Fact label="Host" value={OSC_HOSTS} />
-                        <Fact
-                          label="Port"
-                          value={
-                            <OscPortInput
-                              label={`${channel.label} OSC port`}
-                              value={portDraft[channel.id] ?? String(port)}
-                              onChange={(raw) => {
-                                setPortDraft((prev) => ({ ...prev, [channel.id]: raw }));
-                              }}
-                              onBlur={(raw) => {
-                                setPortDraft((prev) => {
-                                  if (!(channel.id in prev)) return prev;
-                                  const next = { ...prev };
-                                  delete next[channel.id];
-                                  return next;
-                                });
-                                const nextPort = Number(raw);
-                                if (!isOscPort(nextPort) || nextPort === setting?.port) return;
-                                commit(channel.id, { port: nextPort });
-                              }}
-                              onStep={(delta) => stepPort(channel.id, port, setting?.port, delta)}
-                            />
-                          }
-                        />
-                        <Fact
-                          label="Sends"
-                          value={
-                            channel.kind === "bang"
-                              ? "1"
-                              : `${shown}${channel.unit ? ` ${channel.unit}` : ""}`
-                          }
-                        />
-                      </OutputColumn>
-                      <OutputColumn
-                        title="MIDI"
-                        actions={
-                          <>
-                            <PanelTest
-                              label={`Send ${channel.label} MIDI once`}
-                              sent={sentId === `${channel.id}:midi`}
-                              onClick={() => testMidi(channel)}
-                            />
-                            <PanelSwitch
-                              label={`${channel.label} MIDI ${setting?.midi ? "on" : "off"}`}
-                              on={setting?.midi ?? false}
-                              onClick={() => commit(channel.id, { midi: !setting?.midi })}
-                            />
-                          </>
-                        }
-                      >
-                        <Fact
-                          label="CC / Fine CC"
-                          value={
-                            <>
-                              <span title="Map this controller in Live.">{channel.cc}</span>
-                              <span className="text-muted"> / </span>
-                              <span title="Low 7 bits of the same 14-bit value.">
-                                {channel.cc + 32}
-                              </span>
-                            </>
-                          }
-                        />
-                        <Fact label="Channel" value={MIDI_CHANNEL + 1} />
-                        <Fact
-                          label="Full scale"
-                          value={
-                            span ?? `${MIDI_14BIT_MAX} for ${MIDI_GATE_BLIP_MS} ms`
-                          }
-                        />
-                        <Fact
-                          label="Now"
-                          value={word != null ? String(word) : channel.kind === "bang" ? "blip" : "—"}
-                        />
-                      </OutputColumn>
-                    </div>
-                  </li>
-                );
-              })}
+                    {row.map((channel, columnIndex) => (
+                      <ChannelOutput
+                        key={channel.id}
+                        channel={channel}
+                        mode={outputMode}
+                        state={state}
+                        settings={settings}
+                        cadence={cadence}
+                        sentId={sentId}
+                        portDraft={portDraft}
+                        columnIndex={columnIndex}
+                        columnCount={row.length}
+                        onTestOsc={testOsc}
+                        onTestMidi={testMidi}
+                        onToggle={commit}
+                        onPortDraft={(id, raw) => {
+                          setPortDraft((prev) => ({ ...prev, [id]: raw }));
+                        }}
+                        onPortBlur={(id, raw, savedPort) => {
+                          setPortDraft((prev) => {
+                            if (!(id in prev)) return prev;
+                            const next = { ...prev };
+                            delete next[id];
+                            return next;
+                          });
+                          const nextPort = Number(raw);
+                          if (!isOscPort(nextPort) || nextPort === savedPort) return;
+                          commit(id, { port: nextPort });
+                        }}
+                        onPortStep={stepPort}
+                      />
+                    ))}
+                  </div>
+                </li>
+              ))}
             </ul>
           </section>
         ))}

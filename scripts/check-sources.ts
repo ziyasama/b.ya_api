@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { fetchVesselSnapshot } from "@/lib/fetchers/openwaters";
 import { fetchMetar } from "@/lib/fetchers/metar";
 import { fetchOpenMeteo } from "@/lib/fetchers/open-meteo";
 import { fetchSeaLevel } from "@/lib/fetchers/sea-level";
@@ -87,18 +88,24 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log("\nMEASURED — vessels in the approach box (Open Waters)");
+  const ais = await fetchVesselSnapshot();
+  console.log(`  status: ${ais.health}${ais.ok ? "" : ` (${ais.error})`}`);
+  if (ais.data) {
+    line("vessels", ais.data.vesselCount);
+    if (ais.data.vesselCount < 10) {
+      console.log(
+        "  WARNING: the approach box usually holds dozens of ships. A handful means the regional feed is thin again.",
+      );
+    }
+  }
+
   // Assemble the row the worker would write, without touching the database.
   // This is where wind picks measured over modelled and where availability
   // flags are decided, so it is worth seeing before an insert happens.
   const state = toBosphorusState({
     openMeteo: meteo,
-    ais: {
-      ok: false,
-      health: "unavailable",
-      data: null,
-      fetchedAt: new Date().toISOString(),
-      error: "not checked by this script",
-    },
+    ais,
     metar,
     seaLevel: sea,
   });
@@ -118,7 +125,7 @@ async function main(): Promise<void> {
     console.log(`    ${key.padEnd(10)} ${p.kind.padEnd(9)} ${p.source} (${p.ageSeconds ?? "?"}s old)`);
   }
 
-  console.log("\nAIS is not checked here: it needs a key and a live socket. Run npm run worker.\n");
+  console.log("");
 }
 
 void main();

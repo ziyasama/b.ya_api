@@ -9,6 +9,7 @@ import {
 } from "@/components/SourceStatusPills";
 import type { SourceStatus, SourceStatusEntry } from "@/lib/supabase/database.types";
 import { VesselList } from "@/components/VesselList";
+import { vesselCountWindowLabel } from "@/lib/env";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { BosphorusGeo } from "@/lib/map/geo";
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
@@ -88,9 +89,6 @@ const METAR_GLOSS =
 const AIS_GLOSS =
   "Automatic Identification System — the international ship-tracking network vessels use to broadcast position, course, and identity by radio";
 
-const AISSTREAM_GLOSS =
-  "a service that relays live AIS transmissions from ships worldwide";
-
 function windSourceLabel(source: string | null | undefined): string {
   if (source === "metar") return "METAR · measured";
   if (source === "model") return "Open-Meteo · modelled";
@@ -119,12 +117,19 @@ function marineGroupNote(current: BosphorusState | null): string {
   return `All four readings come from the Open-Meteo (free online weather and marine forecast service) marine model at ${where}. The Bosphorus is narrower than the model grid, so there is no in-strait cell — we use open Black Sea water off the northern mouth, the sea that feeds the strait, instead of a sheltered Marmara inshore point that would read near zero. Wave is significant height (roughly the average of the highest third of waves). Wave period is seconds between crests — short is chop from local wind, long is swell from open water. Swell is long-period energy from distant storms, separate from the shorter wind-driven sea. Water temp is sea surface temperature; tide gauges measure height only and have no thermometer.`;
 }
 
+/** Positive head: Black Sea higher, surface tends south. Negative: north. */
+function seaLevelFlowDirection(head: number | null | undefined): "south" | "north" | null {
+  if (head == null || head === 0) return null;
+  return head > 0 ? "south" : "north";
+}
+
 function seaLevelGroupNote(): string {
   return "IOC (Intergovernmental Oceanographic Commission sea level monitoring network) radar tide gauges on either side of the strait. Sea level head is the Black Sea minus Marmara anomaly (how far each gauge sits above or below its own recent average, not the raw chart waterline): Şile on the Black Sea coast minus Yalova on the Marmara side (İğneada and Marmara Ereğlisi are backups if a station goes quiet). Each gauge is compared to its own 24-hour average so local datums (local zero points) do not skew the comparison. Positive head means the Black Sea sits higher and surface water tends to flow south — a height difference in metres, not a current speed. Black Sea alone is Şile's anomaly — how much higher or lower than its recent average.";
 }
 
 function trafficGroupNote(): string {
-  return `Live AIS (${AIS_GLOSS}). AISStream (${AISSTREAM_GLOSS}) counts ships in a box around the strait. Vessels is the total live count. Northbound and southbound split that roster by whether each ship's last two fixes moved toward the Black Sea or the Marmara; a ship seen only once has no direction yet and is not counted in either direction. During the first minute after connecting, an empty feed is treated as unavailable (a broken feed), not as zero ships, because vessels check in over several minutes.`;
+  const window = vesselCountWindowLabel();
+  return `${window} of AIS (${AIS_GLOSS}), relayed by Open Waters from coastal receivers and the AISHub network. Vessels is every ship heard in that window, from the Marmara approaches, through the strait, to the Black Sea mouth. Northbound ships are moving toward the Black Sea. Southbound ships are moving toward the Marmara. Ships that are sitting still stay in the total and in neither direction.`;
 }
 
 export function DashboardLive({
@@ -196,7 +201,7 @@ export function DashboardLive({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
       <header className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1 pr-4">
           <p className="font-mono text-sm uppercase tracking-[0.35em] text-cyan">
             Bosphorus
           </p>
@@ -303,6 +308,9 @@ export function DashboardLive({
             previous={previous?.seaLevelHead ?? null}
             unit="m"
             history={seriesPoints(history, "seaLevelHead")}
+            direction={seaLevelFlowDirection(
+              current?.available.seaLevel ? current.seaLevelHead : null,
+            )}
           />
           <MetricCard
             label="Black Sea"
@@ -317,7 +325,7 @@ export function DashboardLive({
           title="Maritime traffic"
           note={
             <MetricNote
-              source="AISStream · measured"
+              source="Open Waters · measured"
               statusKey="ais"
               statusEntry={current?.sourceStatus?.ais}
             >

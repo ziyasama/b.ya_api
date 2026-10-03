@@ -3,7 +3,7 @@ import { BOSPHORUS } from "@/lib/env";
 /**
  * Server-only geometry for the /map route and the dashboard's embedded
  * scan map. Reads the exact same env accessors as
- * `lib/fetchers/aisstream.ts`, so if the AIS bounding boxes ever change in
+ * `lib/fetchers/openwaters.ts`, so if the AIS bounding boxes ever change in
  * `.env.local` / Railway variables, the map picks it up automatically —
  * nothing here is hand-copied.
  *

@@ -1,22 +1,21 @@
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { envNumber } from "@/lib/env";
+import { vesselCountWindowMs } from "@/lib/env";
 import { log } from "@/lib/logger";
 import type { AisVesselRaw } from "@/lib/fetchers/types";
 import type { VesselPositionRow } from "@/lib/supabase/database.types";
 import type { GateCrossing } from "@/lib/vessels/events";
 
 /**
- * Durable vessel roster. AISStream is event-driven, so a fresh worker sees an
- * empty strait for several minutes and used to write vessel_data = [] as
- * though the Bosphorus were deserted. Persisting the roster lets a restart
- * pick up where the previous process left off.
+ * Durable vessel roster. A fresh worker used to write vessel_data = [] for
+ * several minutes and publish the Bosphorus as deserted. Persisting the
+ * roster lets a restart pick up where the previous process left off.
  *
  * Worker-only: this uses the service role key and must never reach the client
  * bundle, which is why it is not exported from lib/fetchers.
  */
 
 function staleMs(): number {
-  return envNumber("AIS_STALE_MS", 900_000);
+  return vesselCountWindowMs();
 }
 
 export async function loadRoster(): Promise<AisVesselRaw[]> {

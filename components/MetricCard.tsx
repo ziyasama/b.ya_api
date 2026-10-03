@@ -10,6 +10,7 @@ export function MetricCard({
   unit,
   history,
   compassDirection,
+  direction,
 }: {
   label: string;
   value: number | null;
@@ -17,6 +18,8 @@ export function MetricCard({
   unit: string;
   history?: HistoryPoint[];
   compassDirection?: number | null;
+  /** Flow sense shown in parentheses after the reading, e.g. "south". */
+  direction?: string | null;
 }) {
   return (
     <div className="relative h-full rounded-xl border border-border bg-panel p-4">
@@ -31,6 +34,9 @@ export function MetricCard({
       <p className="mt-2 font-mono text-xl">
         {value == null ? "—" : Number.isInteger(value) ? value : value.toFixed(2)}
         <span className="ml-1 text-sm text-muted">{unit}</span>
+        {direction ? (
+          <span className="ml-1.5 text-sm text-muted">({direction})</span>
+        ) : null}
       </p>
       <p className="mt-2 text-xs">
         <TrendArrow current={value} previous={previous} />
