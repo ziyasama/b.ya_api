@@ -42,7 +42,7 @@ export type VesselRecord = {
   size?: number | null;
   shipName?: string | null;
   shipType?: number | null;
-  /** Sign of latitude change. Null until two fixes exist; never invented. */
+  /** North toward the Black Sea, south toward the Marmara. Null when not making way. */
   transit?: "northbound" | "southbound" | null;
 };
 

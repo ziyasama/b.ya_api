@@ -63,7 +63,17 @@ export type AisVesselRaw = {
    * past the usual window; see vesselStillCurrent.
    */
   sog?: number | null;
-  /** Sign of latitude change vs the previous fix. Null until the vessel has moved. */
+  /** Course over ground, degrees. 0 is north. Null when the report omitted it. */
+  cog?: number | null;
+  /** Bow heading. Used only when course over ground is missing. */
+  heading?: number | null;
+  /** AIS navigational status. 1 anchored, 5 moored, 6 aground. */
+  navStatus?: number | null;
+  /**
+   * Which way the ship is making way. Course over ground when the ship is
+   * moving; a latitude step only when course is missing. Null when it is
+   * sitting still.
+   */
   transit: "northbound" | "southbound" | null;
 };
 

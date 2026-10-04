@@ -1,7 +1,7 @@
 import type { BosphorusStateRow } from "@/lib/supabase/database.types";
 import { straitCounts } from "@/lib/vessels/inside";
 
-export const HISTORY_WINDOW_MS = 14_400_000;
+export const HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
 /** PostgREST fetch cap — ~2 samples/min over the window, with headroom. */
 export const HISTORY_ROW_LIMIT = Math.ceil(HISTORY_WINDOW_MS / 60_000) * 4;
 

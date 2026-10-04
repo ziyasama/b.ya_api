@@ -20,8 +20,8 @@ can drop a voice instead of reading a normalized 0 as calm.
 | `/bosphorus/sea/temp` | Sea surface temperature | modelled | same cell | Gauges have no thermistor. |
 | `/bosphorus/sea/head` | Black Sea minus Marmara sea level | measured / derived | IOC `sile` − `yalo` (backups `igne`, `maer`) | Signed. 0.5 is level. Positive drives surface water south. **Not a current in m/s.** |
 | `/bosphorus/vessels/count` | Live AIS roster size | measured | Open Waters (AISHub and coastal receivers) | An empty region is *unavailable*, not zero. |
-| `/bosphorus/vessels/northbound` | Vessels whose last latitude change was north | derived from AIS | sign of Δlat | Null/omitted until a vessel has moved. |
-| `/bosphorus/vessels/southbound` | Vessels whose last latitude change was south | derived from AIS | sign of Δlat | Toward the Marmara. |
+| `/bosphorus/vessels/northbound` | Ships inside, making way toward the Black Sea | derived from AIS | course over ground (heading if course is missing); an underway fix stays inside for 6 hours | Under 3 knots, anchored, or moored counts as neither direction. The middle of the strait rarely reports, so a ship that has entered is kept until the window ends. |
+| `/bosphorus/vessels/southbound` | Ships inside, making way toward the Marmara | derived from AIS | same as northbound | |
 
 Availability (0.0 or 1.0):
 

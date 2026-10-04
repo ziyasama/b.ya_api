@@ -15,14 +15,18 @@ export function envNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-/** A ship stays in the vessel count for this long after its last AIS position. */
-export const VESSEL_COUNT_WINDOW_MS = 4 * 60 * 60 * 1000;
+/**
+ * A ship stays in the vessel count for this long after its last AIS position.
+ * Daytime traffic is still in the strait well after the radio drops out in
+ * the middle, so four hours was erasing ships a person could see.
+ */
+export const VESSEL_COUNT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 export function vesselCountWindowMs(): number {
   return envNumber("AIS_STALE_MS", VESSEL_COUNT_WINDOW_MS);
 }
 
-/** "Last 4 hours" — the span named on the traffic rows. */
+/** "Last 6 hours" — the span named on the traffic rows. */
 export function vesselCountWindowLabel(ms = vesselCountWindowMs()): string {
   if (ms % 3_600_000 === 0) {
     const hours = ms / 3_600_000;

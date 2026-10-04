@@ -28,12 +28,12 @@ const COLUMNS: { label: string; hint: string; tip: "left" | "right" }[] = [
   },
   {
     label: "Way",
-    hint: "The last move. N is north, toward the Black Sea. S is south, toward the Marmara. STILL means sitting in place, or only one position so far.",
+    hint: "N is north, toward the Black Sea. S is south, toward the Marmara. STILL means under 3 knots, anchored, or moored.",
     tip: "right",
   },
   {
     label: "Position",
-    hint: "The latest latitude and longitude.",
+    hint: "Where the ship is. A ship still making way is moved forward on its course from the last radio fix, for up to six hours.",
     tip: "right",
   },
 ];

@@ -127,7 +127,7 @@ function seaLevelGroupNote(): string {
 }
 
 function trafficGroupNote(): string {
-  return `Ships whose latest AIS (${AIS_GLOSS}) position is inside the strait, between the Marmara mouth and the Black Sea mouth. A fix from the last 4 hours always counts. A ship still inside, last heard between 1 and 3 knots, counts for 48 hours: the feed hides an "under way" report after 30 minutes, and a ship alongside often never sends "moored". Inside is every one of those ships. Northbound and southbound are the ones moving that way. A ship sitting still stays in Inside and in neither direction. The list below is the wider box, including the approaches.`;
+  return `Ships inside the strait, between the Marmara mouth and the Black Sea mouth. A fix from the last 6 hours always counts. A ship still inside, last heard between 1 and 3 knots, counts for 48 hours: the feed hides an "under way" report after 30 minutes, and a ship alongside often never sends "moored". Inside is every one of those ships. Northbound and southbound are ships making 3 knots or more on a course that points that way (course over ground from AIS, ${AIS_GLOSS}; heading if course is missing). A fix last heard underway, within about 2 miles of the strait, is carried forward on that course for up to 6 hours. The middle of the strait rarely reports on this feed, so a ship whose course has already crossed stays inside until those 6 hours are up. A ship sitting still stays in Inside and in neither direction. The list below is the wider box, including the approaches.`;
 }
 
 export function DashboardLive({

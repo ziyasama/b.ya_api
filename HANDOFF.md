@@ -105,8 +105,12 @@ overlap. Needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 
 ## Step 12 — Vessel events — DONE, 2 Sep 2026
 
-Transit direction is the sign of each vessel's latitude change (northbound
-to the Black Sea, southbound to the Marmara). Gate crossings are intersections
+Transit direction is the ship's course over ground while it is making 3
+knots or more (heading if course is missing; a latitude step only when both
+are absent). An underway fix is carried forward on that course for the
+6-hour count window, and a ship that has entered stays inside until that
+window ends, because the middle of the strait goes quiet and the last point
+sits at the mouth. Gate crossings are intersections
 with the Port of Istanbul lighthouse lines: Rumeli–Anadolu (north) and
 Ahırkapı–İnciburnu (south). Written to `vessel_events`. Jitter and AIS gaps
 longer than 15 minutes are not events.

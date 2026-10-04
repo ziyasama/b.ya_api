@@ -68,7 +68,7 @@ window buys time resolution rather than a smaller payload.
 
 The approach box (Marmara, the strait, and the Black Sea mouth) is polled from
 Open Waters' GeoJSON snapshot and followed on their WebSocket. The snapshot
-asks for underway reports back 48 hours. A fix older than 4 hours is kept only
+asks for underway reports back 48 hours. A fix older than 6 hours is kept only
 when it is still inside the strait at 1–3 knots: the feed hides an underway
 report after 30 minutes, which drops a ship that docked without ever sending
 "moored". AISStream's

@@ -3,6 +3,7 @@ import { BOSPHORUS, env, envNumber, vesselCountWindowMs } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { recall, remember } from "@/lib/fetchers/last-known";
 import type { AisSnapshotRaw, AisVesselRaw, FetcherResult } from "@/lib/fetchers/types";
+import { readCourse, readNavStatus, resolveTransit } from "@/lib/vessels/course";
 import { detectCrossings, MAX_GAP_MS, transitDirection } from "@/lib/vessels/events";
 import type { GateCrossing } from "@/lib/vessels/events";
 import { inStrait } from "@/lib/vessels/inside";
@@ -29,6 +30,9 @@ export type VesselUpdate = {
   shipType: number | null;
   size: number | null;
   sog: number | null;
+  cog?: number | null;
+  heading?: number | null;
+  navStatus?: number | null;
 };
 
 type Dimension = { A?: number; B?: number };
@@ -44,6 +48,9 @@ type OpenWatersFeature = {
     seen?: string;
     kind?: string;
     sog?: number;
+    cog?: number;
+    heading?: number;
+    nav_status?: number;
   };
 };
 
@@ -56,10 +63,16 @@ type OpenWatersFrame = {
   lon?: number;
   time?: string;
   sog?: number;
+  cog?: number;
+  heading?: number;
+  nav_status?: number;
   message?: {
     Name?: string;
     Type?: number;
     Sog?: number;
+    Cog?: number;
+    TrueHeading?: number;
+    NavigationalStatus?: number;
     Dimension?: Dimension;
     ReportA?: { Name?: string };
     ReportB?: { ShipType?: number; Dimension?: Dimension };
@@ -150,11 +163,11 @@ function readSog(value: unknown): number | null {
 }
 
 /**
- * A fix from the last 4 hours always counts. Past that, only a ship still
- * inside the strait and last heard between 1 and 3 knots: fast enough that
- * Open Waters treats it as "under way" and hides it after 30 minutes, slow
- * enough that it has not left the berth. A stopped ship (under 1 knot) stays
- * on the 4-hour rule.
+ * A fix from the count window (6 hours) always counts. Past that, only a
+ * ship still inside the strait and last heard between 1 and 3 knots: fast
+ * enough that Open Waters treats it as "under way" and hides it after 30
+ * minutes, slow enough that it has not left the berth. A stopped ship
+ * (under 1 knot) stays on the count-window rule.
  */
 export function vesselStillCurrent(
   vessel: { lat: number; lon: number; lastSeen: string; sog?: number | null },
@@ -211,6 +224,9 @@ export function updateFromFeature(feature: OpenWatersFeature, now = Date.now()):
     shipType: feature.properties?.type ?? null,
     size: length != null && length > 0 ? length : null,
     sog,
+    cog: readCourse(feature.properties?.cog),
+    heading: readCourse(feature.properties?.heading),
+    navStatus: readNavStatus(feature.properties?.nav_status),
   };
 }
 
@@ -238,12 +254,17 @@ export function updateFromEvent(frame: OpenWatersFrame, now = Date.now()): Vesse
     shipType: message?.Type ?? message?.ReportB?.ShipType ?? null,
     size: lengthOf(message?.Dimension ?? message?.ReportB?.Dimension),
     sog,
+    cog: readCourse(frame.cog ?? message?.Cog),
+    heading: readCourse(frame.heading ?? message?.TrueHeading),
+    navStatus: readNavStatus(frame.nav_status ?? message?.NavigationalStatus),
   };
 }
 
 /**
  * Keep the newer fix. A gap longer than the crossing window still moves the
- * ship, but it is not a transit: the vessel may have left and come back.
+ * ship, but it is not a gate crossing: the vessel may have left and come
+ * back. Direction does not wait for that second point. Course over ground
+ * on this fix is enough, and a latitude step is only the fallback.
  */
 export function mergeVessel(
   existing: AisVesselRaw | undefined,
@@ -262,6 +283,9 @@ export function mergeVessel(
         shipType: existing.shipType ?? update.shipType,
         size: existing.size ?? update.size,
         sog: existing.sog ?? update.sog,
+        cog: existing.cog ?? update.cog ?? null,
+        heading: existing.heading ?? update.heading ?? null,
+        navStatus: existing.navStatus ?? update.navStatus ?? null,
       },
     };
   }
@@ -272,11 +296,20 @@ export function mergeVessel(
     Number.isFinite(existingMs) &&
     updateMs - existingMs <= MAX_GAP_MS;
   const moved = gapOk && (existing.lat !== update.lat || existing.lon !== update.lon);
-  let transit = existing?.transit ?? null;
+  let stepped = existing?.transit ?? null;
   if (moved && existing) {
     const nextDir = transitDirection(existing, update);
-    if (nextDir) transit = nextDir;
+    if (nextDir) stepped = nextDir;
   }
+
+  const cog = update.cog ?? existing?.cog ?? null;
+  const heading = update.heading ?? existing?.heading ?? null;
+  const sog = update.sog ?? existing?.sog ?? null;
+  const navStatus = update.navStatus ?? existing?.navStatus ?? null;
+  const transit = resolveTransit(
+    { lat: update.lat, lon: update.lon, sog, cog, heading, navStatus },
+    stepped,
+  );
 
   return {
     track: moved,
@@ -288,7 +321,10 @@ export function mergeVessel(
       shipName: update.shipName || existing?.shipName || null,
       shipType: update.shipType ?? existing?.shipType ?? null,
       lastSeen: update.lastSeen,
-      sog: update.sog,
+      sog,
+      cog,
+      heading,
+      navStatus,
       transit,
     },
   };
@@ -316,7 +352,13 @@ export async function fetchVesselSnapshot(
     for (const feature of body.features ?? []) {
       const update = updateFromFeature(feature, now);
       if (!update) continue;
-      vessels.push({ ...update, transit: null });
+      vessels.push({
+        ...update,
+        cog: update.cog ?? null,
+        heading: update.heading ?? null,
+        navStatus: update.navStatus ?? null,
+        transit: resolveTransit(update, null),
+      });
     }
     if (vessels.length === 0) {
       return {

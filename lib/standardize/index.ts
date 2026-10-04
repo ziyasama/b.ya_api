@@ -13,6 +13,7 @@ import type {
 } from "@/lib/supabase/database.types";
 import type { BosphorusState } from "@/lib/standardize/types";
 import { normalize } from "@/lib/standardize/ranges";
+import { carryUnderway } from "@/lib/vessels/course";
 import { straitCounts } from "@/lib/vessels/inside";
 
 function statusFrom<T>(result: FetcherResult<T>): SourceStatusEntry {
@@ -62,15 +63,20 @@ export function toBosphorusState(input: {
   const seaLevelMarmara = seaLevel?.marmara?.anomaly ?? null;
   const seaLevelHead = seaLevel?.head ?? null;
 
-  const vesselData: VesselRecord[] = (ais?.vessels ?? []).map((v) => ({
-    mmsi: v.mmsi,
-    lat: v.lat,
-    lon: v.lon,
-    size: v.size,
-    shipName: v.shipName,
-    shipType: v.shipType,
-    transit: v.transit,
-  }));
+  const vesselData: VesselRecord[] = (ais?.vessels ?? []).map((v) => {
+    // Published position, not the raw fix. An underway ship is carried
+    // forward on its course so a quiet report at the mouth is not left outside.
+    const placed = carryUnderway(v, now.getTime());
+    return {
+      mmsi: placed.mmsi,
+      lat: placed.lat,
+      lon: placed.lon,
+      size: placed.size,
+      shipName: placed.shipName,
+      shipType: placed.shipType,
+      transit: placed.transit,
+    };
+  });
   const heard = ais?.vesselCount ?? null;
   const inside = straitCounts(vesselData);
   const vesselCount = heard == null ? null : inside.total;
@@ -123,7 +129,7 @@ export function toBosphorusState(input: {
       observedAt: input.ais.fetchedAt,
       ageSeconds: ageSeconds(input.ais.fetchedAt, now),
       detail:
-        "ships inside the strait; a docking-speed fix there is kept for 48 hours",
+        "ships inside the strait; course sets direction, an underway fix stays for 6 hours, a docking-speed fix is kept for 48 hours",
     };
   }
 

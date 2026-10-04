@@ -36,7 +36,35 @@ describe("updateFromFeature", () => {
       shipType: 70,
       size: 119,
       sog: null,
+      cog: null,
+      heading: null,
+      navStatus: null,
     });
+  });
+
+  it("reads course, heading, and navigational status", () => {
+    const update = updateFromFeature(
+      {
+        geometry: { coordinates: [28.9934, 40.9739] },
+        properties: {
+          mmsi: 123,
+          name: "CMA CGM OSAKA",
+          length: 260,
+          type: 70,
+          sog: 12.7,
+          cog: 1.1,
+          heading: 2,
+          nav_status: 0,
+          seen: "2026-10-04T13:33:26.000Z",
+          kind: "vessel",
+        },
+      },
+      Date.parse("2026-10-04T13:48:26.000Z"),
+    );
+    assert.equal(update?.cog, 1.1);
+    assert.equal(update?.heading, 2);
+    assert.equal(update?.navStatus, 0);
+    assert.equal(update?.sog, 12.7);
   });
 
   it("keeps a docking-speed fix inside the strait past the four-hour window", () => {
@@ -105,7 +133,7 @@ describe("updateFromFeature", () => {
       updateFromFeature(
         {
           geometry: { coordinates: [29, 41] },
-          properties: { mmsi: 2, kind: "vessel", seen: "2026-10-03T11:00:00.000Z" },
+          properties: { mmsi: 2, kind: "vessel", seen: "2026-10-03T09:00:00.000Z" },
         },
         NOW,
       ),
@@ -194,6 +222,68 @@ describe("mergeVessel", () => {
     assert.equal(track, false);
     assert.equal(vessel.transit, null);
     assert.equal(vessel.lat, 41.2);
+  });
+
+  it("takes northbound from course even when this step's latitude fell", () => {
+    const { vessel, track } = mergeVessel(
+      { ...existing, transit: "southbound", sog: 8, cog: 180 },
+      {
+        mmsi: "1",
+        lat: 41.005,
+        lon: 29.01,
+        lastSeen: "2026-10-03T15:51:00.000Z",
+        shipName: "OLD",
+        shipType: 70,
+        size: 100,
+        sog: 12.7,
+        cog: 1.1,
+        heading: 2,
+        navStatus: 0,
+      },
+    );
+    assert.equal(track, true);
+    assert.equal(vessel.transit, "northbound");
+    assert.equal(vessel.cog, 1.1);
+  });
+
+  it("clears direction when the ship is no longer making way", () => {
+    const { vessel } = mergeVessel(
+      { ...existing, transit: "northbound", sog: 10, cog: 1 },
+      {
+        mmsi: "1",
+        lat: 41.011,
+        lon: 29.01,
+        lastSeen: "2026-10-03T15:51:00.000Z",
+        shipName: "OLD",
+        shipType: 70,
+        size: 100,
+        sog: 0.4,
+        cog: 1,
+        navStatus: 0,
+      },
+    );
+    assert.equal(vessel.transit, null);
+  });
+});
+
+describe("vesselStillCurrent", () => {
+  const inside = { lat: 41.05, lon: 29.02, sog: 8 };
+
+  it("keeps an underway ship through the six-hour window and drops it after", () => {
+    assert.equal(
+      vesselStillCurrent(
+        { ...inside, lastSeen: new Date(NOW - 5 * 60 * 60 * 1000).toISOString() },
+        NOW,
+      ),
+      true,
+    );
+    assert.equal(
+      vesselStillCurrent(
+        { ...inside, lastSeen: new Date(NOW - 7 * 60 * 60 * 1000).toISOString() },
+        NOW,
+      ),
+      false,
+    );
   });
 });
 
