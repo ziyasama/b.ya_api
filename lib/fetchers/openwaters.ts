@@ -29,7 +29,7 @@ export type VesselUpdate = {
   shipName: string | null;
   shipType: number | null;
   size: number | null;
-  sog: number | null;
+  sog?: number | null;
   cog?: number | null;
   heading?: number | null;
   navStatus?: number | null;
