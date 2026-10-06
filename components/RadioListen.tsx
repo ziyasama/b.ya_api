@@ -5,6 +5,8 @@ import { OscLink } from "@/components/OscPage";
 import { PillButton, PillLink } from "@/components/PillControl";
 
 const PLAY_SRC = "/api/radio";
+/** SuperCollider patch link and Icecast listen button. Hidden until radio is public. */
+const SHOW_PATCH_AND_RADIO = false;
 
 export function RadioListen({ url }: { url: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -69,31 +71,35 @@ export function RadioListen({ url }: { url: string }) {
     <div ref={rootRef} className="relative z-10 shrink-0">
       <div className="flex items-center gap-1">
         <OscLink />
-        <PillLink
-          href="/radio"
-          aria-label="Review SuperCollider patch code"
-          title="SuperCollider patch"
-          className="border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
-        >
-          SC
-        </PillLink>
-        <PillButton
-          onClick={() => void toggle()}
-          aria-pressed={playing}
-          aria-label={playing ? "Stop Bosphorus radio" : "Listen to Bosphorus radio"}
-          title={
-            error
-              ? "Stream unreachable — is radio/docker-compose.yml up?"
-              : "Local Icecast"
-          }
-          className={
-            playing
-              ? "border-green text-green hover:bg-green/15 active:bg-green/25"
-              : "border-red text-red hover:bg-red/15 active:bg-red/25"
-          }
-        >
-          {playing ? "● Radio" : error ? "Radio · off" : "▶ Radio"}
-        </PillButton>
+        {SHOW_PATCH_AND_RADIO ? (
+          <>
+            <PillLink
+              href="/radio"
+              aria-label="Review SuperCollider patch code"
+              title="SuperCollider patch"
+              className="border-border text-muted hover:border-cyan hover:text-cyan hover:bg-cyan/10 active:bg-cyan/15"
+            >
+              SC
+            </PillLink>
+            <PillButton
+              onClick={() => void toggle()}
+              aria-pressed={playing}
+              aria-label={playing ? "Stop Bosphorus radio" : "Listen to Bosphorus radio"}
+              title={
+                error
+                  ? "Stream unreachable — is radio/docker-compose.yml up?"
+                  : "Local Icecast"
+              }
+              className={
+                playing
+                  ? "border-green text-green hover:bg-green/15 active:bg-green/25"
+                  : "border-red text-red hover:bg-red/15 active:bg-red/25"
+              }
+            >
+              {playing ? "● Radio" : error ? "Radio · off" : "▶ Radio"}
+            </PillButton>
+          </>
+        ) : null}
         {playing ? (
           <PillButton
             compact
